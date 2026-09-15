@@ -53,3 +53,6 @@ Thumbs.db
 
 # Angular SSR build output
 /dist-server
+
+# Verification builds (the dev server holds /dist)
+/dist-verify
