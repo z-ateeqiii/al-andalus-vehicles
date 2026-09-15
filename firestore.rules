@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// معرض الأندلس — Firestore security rules.
+//
+// The Firebase web config in src/environments/environment.ts is public by
+// design. THIS FILE is the security boundary, not that file.
+//
+// Deploy with:  firebase deploy --only firestore:rules,firestore:indexes
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // The single admin is marked by a document at admins/{uid}, written by
+    // hand in the console. No client can read it — see the rule at the bottom.
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ── The catalogue ────────────────────────────────────────────────────
+    // Public read. Hiding sold and hidden vehicles is a product decision
+    // enforced in VehicleService, not a security one: the whole catalogue is
+    // public data.
+    match /vehicles/{vehicleId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Showroom settings ────────────────────────────────────────────────
+    // Only settings/showroom is public; any other document under settings is
+    // admin-only.
+    match /settings/{document} {
+      allow read: if document == 'showroom';
+      allow write: if isAdmin();
+    }
+
+    // ── Visitor counter ──────────────────────────────────────────────────
+    // Anyone may add exactly one view, and nothing else. The first visit of
+    // the day creates the document with views == 1; every later one raises it
+    // by exactly one and may not touch another field.
+    match /analytics/{document} {
+      allow read: if isAdmin();
+
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasOnly(['views'])
+        && request.resource.data.views is int
+        && request.resource.data.views == 1
+      );
+
+      allow update: if isAdmin() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])
+        && request.resource.data.views is int
+        && request.resource.data.views == resource.data.views + 1
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // ── The admin marker ─────────────────────────────────────────────────
+    // No client access at all. isAdmin() above is evaluated by the rules
+    // engine, which is not bound by this rule.
+    match /admins/{uid} {
+      allow read, write: if false;
+    }
+
+    // Anything not named above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
