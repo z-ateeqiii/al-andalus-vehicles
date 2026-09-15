@@ -1,0 +1,14 @@
+<div
+  class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+  [attr.aria-busy]="vehicles() === null ? 'true' : null"
+>
+  @if (vehicles(); as list) {
+    @for (vehicle of list; track vehicle.id) {
+      <app-vehicle-card [vehicle]="vehicle" />
+    }
+  } @else {
+    @for (placeholder of placeholders(); track $index) {
+      <app-vehicle-card-skeleton />
+    }
+  }
+</div>

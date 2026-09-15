@@ -33,7 +33,13 @@ export class IconComponent {
    */
   readonly label = input('');
 
+  /**
+   * Overrides the library's default for this icon. The heart uses it to read
+   * as saved vs. not saved from the same path data.
+   */
+  readonly fill = input<boolean | null>(null);
+
   protected readonly paths = computed<readonly string[]>(() => ICON_PATHS[this.name()]);
 
-  protected readonly filled = computed(() => FILLED_ICONS.has(this.name()));
+  protected readonly filled = computed(() => this.fill() ?? FILLED_ICONS.has(this.name()));
 }

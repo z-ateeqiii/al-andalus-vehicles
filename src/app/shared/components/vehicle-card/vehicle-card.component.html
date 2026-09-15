@@ -1,0 +1,62 @@
+<article
+  class="group surface-panel relative overflow-hidden transition-colors duration-200 hover:border-gold/60 focus-within:border-gold/60"
+>
+  <div class="relative aspect-[4/3] overflow-hidden bg-elevated/40">
+    <app-cloud-image
+      [src]="vehicle().coverImageUrl"
+      [alt]="title()"
+      [sizes]="sizes()"
+      [width]="800"
+      [height]="600"
+      [baseWidth]="800"
+      imgClass="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.04]"
+      class="h-full w-full"
+    />
+
+    @if (isReserved()) {
+      <span
+        class="absolute top-2 start-2 rounded-full border border-warning/40 bg-ink/85 px-2.5 py-1 text-[0.7rem] font-bold text-warning"
+      >
+        محجوزة
+      </span>
+    }
+  </div>
+
+  <div class="flex flex-col gap-1 p-3">
+    @if (vehicle().color) {
+      <span class="flex items-center gap-1.5 text-xs text-muted">
+        <span
+          class="size-2 shrink-0 rounded-full border border-cream/20"
+          [style.background-color]="vehicle().colorHex || 'transparent'"
+        ></span>
+        {{ vehicle().color }}
+      </span>
+    }
+
+    <h3 class="text-sm font-bold text-cream">
+      <!-- Stretched link: the whole card is clickable, the heart still is not. -->
+      <a
+        class="after:absolute after:inset-0 after:content-['']"
+        [routerLink]="['/vehicles', vehicle().id]"
+      >
+        {{ title() }}
+      </a>
+    </h3>
+
+    <span class="font-latin text-xs text-muted">{{ vehicle().year }}</span>
+
+    <span class="price mt-0.5 text-sm font-bold">
+      {{ vehicle().price | egpPrice }}
+    </span>
+  </div>
+
+  <button
+    type="button"
+    class="absolute top-2 end-2 z-10 flex size-9 items-center justify-center rounded-full bg-ink/70 text-cream backdrop-blur transition hover:text-gold"
+    (click)="toggleFavorite($event)"
+    [attr.aria-pressed]="isSaved()"
+    [attr.aria-label]="isSaved() ? 'شيل من المفضلة' : 'احفظ في المفضلة'"
+  >
+    <app-icon name="heart" [size]="18" [fill]="isSaved()" [class]="isSaved() ? 'text-gold' : ''" />
+  </button>
+</article>
