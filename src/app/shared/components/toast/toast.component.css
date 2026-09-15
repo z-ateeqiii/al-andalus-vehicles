@@ -1,0 +1,19 @@
+/* A plain fade — the design system rules out entrance animations with movement. */
+.toast-item {
+  animation: toast-in 150ms ease both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-item {
+    animation: none;
+  }
+}
