@@ -10,6 +10,8 @@ import {
 import { RouterLink } from '@angular/router';
 import { VEHICLE_CATEGORY_LABELS, Vehicle } from '../../../core/models/vehicle.model';
 import { FavoritesService } from '../../../core/services/favorites.service';
+import { SeoService } from '../../../core/services/seo.service';
+import { SettingsService } from '../../../core/services/settings.service';
 import { VehicleService } from '../../../core/services/vehicle.service';
 import { WhatsAppService } from '../../../core/services/whatsapp.service';
 import { CloudImageComponent } from '../../../shared/components/cloud-image/cloud-image.component';
@@ -66,6 +68,8 @@ export class VehicleDetailsComponent {
   private readonly vehicleService = inject(VehicleService);
   private readonly whatsapp = inject(WhatsAppService);
   private readonly favorites = inject(FavoritesService);
+  private readonly settingsService = inject(SettingsService);
+  private readonly seo = inject(SeoService);
 
   /** Bound from the route by `withComponentInputBinding`. */
   readonly id = input.required<string>();
@@ -211,10 +215,22 @@ export class VehicleDetailsComponent {
     this.loading.set(true);
     this.failed.set(false);
 
-    this.vehicleService.getPublic(id).then(
-      (vehicle) => {
+    // Settings and the vehicle are awaited together: the preview description
+    // names the showroom, and both reads are already in TransferState.
+    void Promise.all([this.vehicleService.getPublic(id), this.settingsService.load()]).then(
+      ([vehicle, settings]) => {
         this.vehicle.set(vehicle);
         this.loading.set(false);
+
+        if (vehicle) {
+          this.seo.applyVehicle(vehicle, settings);
+        } else {
+          this.seo.applyPage({
+            title: 'العربية دي مش موجودة',
+            description: 'العربية اللي بتدور عليها مش متاحة دلوقتي في معرض الأندلس.',
+            path: `/vehicles/${id}`,
+          });
+        }
       },
       () => {
         this.failed.set(true);

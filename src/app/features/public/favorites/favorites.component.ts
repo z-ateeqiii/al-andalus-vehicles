@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Vehicle } from '../../../core/models/vehicle.model';
 import { FavoritesService } from '../../../core/services/favorites.service';
+import { SeoService } from '../../../core/services/seo.service';
 import { VehicleService } from '../../../core/services/vehicle.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
@@ -23,6 +24,7 @@ import { VehicleGridComponent } from '../../../shared/components/vehicle-grid/ve
 export class FavoritesComponent {
   private readonly vehicleService = inject(VehicleService);
   private readonly favorites = inject(FavoritesService);
+  private readonly seo = inject(SeoService);
 
   protected readonly all = signal<readonly Vehicle[] | null>(null);
   protected readonly failed = signal(false);
@@ -36,6 +38,12 @@ export class FavoritesComponent {
 
   constructor() {
     this.load();
+
+    this.seo.applyPage({
+      title: 'المفضلة',
+      description: 'العربيات اللي حفظتها من معرض الأندلس على الجهاز ده.',
+      path: '/favorites',
+    });
   }
 
   protected load(): void {

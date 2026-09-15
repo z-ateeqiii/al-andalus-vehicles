@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ShowroomSettings } from '../../../core/models/showroom-settings.model';
 import { Vehicle } from '../../../core/models/vehicle.model';
 import { CloudinaryService } from '../../../core/services/cloudinary.service';
+import { SeoService } from '../../../core/services/seo.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { VehicleService } from '../../../core/services/vehicle.service';
 import { WhatsAppService } from '../../../core/services/whatsapp.service';
@@ -41,6 +42,7 @@ export class HomeComponent {
   private readonly settingsService = inject(SettingsService);
   private readonly cloudinary = inject(CloudinaryService);
   private readonly whatsapp = inject(WhatsAppService);
+  private readonly seo = inject(SeoService);
   private readonly document = inject(DOCUMENT);
 
   protected readonly settings = signal<ShowroomSettings | null>(null);
@@ -63,6 +65,14 @@ export class HomeComponent {
     void this.settingsService.load().then((settings) => {
       this.settings.set(settings);
       this.preloadHero(settings.heroImageUrl);
+      this.seo.applyPage({
+        title: `${settings.heroHeading} ${settings.heroSubheading}`.trim(),
+        description:
+          settings.heroDescription ||
+          'معرض الأندلس لبيع وشراء عربيات النص نقل والربع نقل والملاكي في مصر.',
+        path: '/',
+        image: settings.heroImageUrl,
+      });
     });
 
     this.loadVehicles();

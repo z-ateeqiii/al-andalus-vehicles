@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ShowroomSettings } from '../../../core/models/showroom-settings.model';
 import { Vehicle, VehicleCategory } from '../../../core/models/vehicle.model';
+import { SeoService } from '../../../core/services/seo.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { VehicleService } from '../../../core/services/vehicle.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -55,6 +56,7 @@ export class VehiclesComponent {
   private readonly settingsService = inject(SettingsService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly seo = inject(SeoService);
 
   protected readonly all = signal<readonly Vehicle[] | null>(null);
   protected readonly settings = signal<ShowroomSettings | null>(null);
@@ -208,6 +210,13 @@ export class VehiclesComponent {
   constructor() {
     void this.settingsService.load().then((settings) => this.settings.set(settings));
     this.load();
+
+    this.seo.applyPage({
+      title: 'جميع العربيات',
+      description:
+        'اتفرج على كل عربيات النص نقل والربع نقل والملاكي المتاحة في معرض الأندلس، بأسعارها ومواصفاتها.',
+      path: '/vehicles',
+    });
   }
 
   protected load(): void {

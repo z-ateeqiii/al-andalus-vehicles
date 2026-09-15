@@ -31,5 +31,12 @@ export const environment = {
    * Fallback only. The live number comes from `settings/showroom` so the owner
    * can change it without a deploy — never read this from a component.
    */
+  /**
+   * Last-resort origin for canonical URLs and the sitemap. At runtime the
+   * real host is taken from the request, so this only matters if that is
+   * unavailable. Set it to the production domain once it exists.
+   */
+  siteUrl: 'https://al-andalus-vehicles.vercel.app',
+
   whatsappNumber: '201276364094',
 } as const;

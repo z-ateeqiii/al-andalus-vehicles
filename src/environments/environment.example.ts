@@ -33,5 +33,12 @@ export const environment = {
     folder: 'YOUR_FOLDER',
   },
 
+  /**
+   * Last-resort origin for canonical URLs and the sitemap. At runtime the
+   * real host is taken from the request, so this only matters if that is
+   * unavailable. Set it to the production domain once it exists.
+   */
+  siteUrl: 'https://al-andalus-vehicles.vercel.app',
+
   whatsappNumber: '201000000000',
 } as const;
