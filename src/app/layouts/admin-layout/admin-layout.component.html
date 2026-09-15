@@ -1,9 +1,5 @@
 <div class="flex min-h-dvh bg-ink">
-  <app-admin-sidebar
-    [open]="sidebarOpen()"
-    (close)="sidebarOpen.set(false)"
-    (logout)="logout()"
-  />
+  <app-admin-sidebar [open]="sidebarOpen()" (close)="sidebarOpen.set(false)" (logout)="logout()" />
 
   <div class="flex min-w-0 flex-1 flex-col">
     <header

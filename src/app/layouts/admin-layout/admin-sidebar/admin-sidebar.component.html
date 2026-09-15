@@ -16,8 +16,7 @@
     ></button>
 
     <div
-      class="drawer-panel absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col
-             border-e border-elevated/40 bg-surface"
+      class="drawer-panel absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col border-e border-elevated/40 bg-surface"
       role="dialog"
       aria-modal="true"
       aria-label="قائمة لوحة التحكم"
@@ -48,8 +47,7 @@
       @for (item of items; track item.path) {
         <li>
           <a
-            class="admin-link flex min-h-11 items-center gap-3 rounded-control px-3 text-sm
-                   text-muted transition hover:bg-elevated/50 hover:text-cream"
+            class="admin-link flex min-h-11 items-center gap-3 rounded-control px-3 text-sm text-muted transition hover:bg-elevated/50 hover:text-cream"
             [routerLink]="item.path"
             routerLinkActive="is-active"
             (click)="close.emit()"
@@ -65,8 +63,7 @@
   <div class="border-t border-elevated/40 px-3 py-4">
     <button
       type="button"
-      class="flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-sm text-muted
-             transition hover:bg-danger/10 hover:text-danger"
+      class="flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-sm text-muted transition hover:bg-danger/10 hover:text-danger"
       (click)="logout.emit()"
     >
       <app-icon name="logout" [size]="20" />

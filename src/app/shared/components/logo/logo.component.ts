@@ -20,9 +20,7 @@ export class LogoComponent {
   /** Shows the `نُقتك .. طريقنا` strapline under the wordmark. */
   readonly tagline = input(false);
 
-  protected readonly swooshWidth = computed(
-    () => ({ sm: 44, md: 58, lg: 92 })[this.size()],
-  );
+  protected readonly swooshWidth = computed(() => ({ sm: 44, md: 58, lg: 92 })[this.size()]);
 
   protected readonly wordmarkClass = computed(
     () => ({ sm: 'text-lg', md: 'text-2xl', lg: 'text-4xl' })[this.size()],

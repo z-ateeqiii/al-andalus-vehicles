@@ -3,8 +3,8 @@
     <div class="flex flex-col items-start gap-3">
       <app-logo size="md" [tagline]="true" />
       <p class="max-w-xs text-sm leading-relaxed text-muted">
-        معرض الأندلس لبيع وشراء السيارات — نص نقل وربع نقل وملاكي، بأسعار مناسبة وإجراءات
-        سهلة وسريعة.
+        معرض الأندلس لبيع وشراء السيارات — نص نقل وربع نقل وملاكي، بأسعار مناسبة وإجراءات سهلة
+        وسريعة.
       </p>
     </div>
 
@@ -13,11 +13,9 @@
       <ul class="flex flex-col gap-2">
         @for (link of quickLinks; track link.path) {
           <li>
-            <a
-              class="text-sm text-muted transition hover:text-gold"
-              [routerLink]="link.path"
-              >{{ link.label }}</a
-            >
+            <a class="text-sm text-muted transition hover:text-gold" [routerLink]="link.path">{{
+              link.label
+            }}</a>
           </li>
         }
       </ul>
