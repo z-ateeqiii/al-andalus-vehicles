@@ -58,3 +58,165 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
     U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+
+/* ---------------------------------------------------------------------------
+   Design tokens — storyboard panel 06. Tailwind v4 has no config file; these
+   custom properties generate the utilities (bg-ink, text-gold, rounded-card…).
+   --------------------------------------------------------------------------- */
+
+@theme {
+  --color-ink: #0f0d0a; /* page background */
+  --color-surface: #1b1a18; /* cards, panels */
+  --color-elevated: #2e2a24; /* hover, borders, inputs */
+  --color-gold: #d4af7c; /* accent, prices, primary buttons */
+  --color-cream: #e8e1d3; /* primary text */
+  --color-muted: #9a9288; /* secondary text — warm grey */
+
+  --font-sans: 'Tajawal', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-latin: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 12px;
+  --radius-control: 8px;
+
+  /* Restrained motion: 200ms ease everywhere. */
+  --default-transition-duration: 200ms;
+  --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position-x: 200%;
+    }
+    to {
+      background-position-x: -200%;
+    }
+  }
+}
+
+@layer base {
+  html {
+    background-color: var(--color-ink);
+    color: var(--color-cream);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+    scrollbar-color: var(--color-elevated) var(--color-ink);
+  }
+
+  body {
+    min-height: 100dvh;
+    /* No layout can push the page sideways — RTL or not. */
+    overflow-x: hidden;
+  }
+
+  /* Latin text and numerals belong to Inter even inside Arabic copy. */
+  :where(input, textarea, select, button) {
+    font-family: inherit;
+  }
+
+  ::selection {
+    background-color: var(--color-gold);
+    color: var(--color-ink);
+  }
+
+  /* A visible gold focus ring on every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Panel 06 — زر أساسي: gold fill, ink text. */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding-inline: 1.5rem;
+    padding-block: 0.625rem;
+    border-radius: var(--radius-control);
+    background-color: var(--color-gold);
+    color: var(--color-ink);
+    font-weight: 700;
+    transition: background-color 200ms ease, opacity 200ms ease;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: color-mix(in oklab, var(--color-gold) 88%, white);
+  }
+
+  /* Panel 06 — زر ثانوي: transparent, gold border, gold text. */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding-inline: 1.5rem;
+    padding-block: 0.625rem;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--color-gold);
+    color: var(--color-gold);
+    font-weight: 700;
+    background-color: transparent;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: color-mix(in oklab, var(--color-gold) 12%, transparent);
+  }
+
+  .btn-primary:disabled,
+  .btn-secondary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* Cards and panels: surface fill, 1px elevated border at ~40%. */
+  .surface-panel {
+    background-color: var(--color-surface);
+    border: 1px solid color-mix(in oklab, var(--color-elevated) 40%, transparent);
+    border-radius: var(--radius-card);
+  }
+
+  .field-input {
+    width: 100%;
+    min-height: 44px;
+    padding-inline: 0.875rem;
+    padding-block: 0.625rem;
+    border-radius: var(--radius-control);
+    background-color: var(--color-elevated);
+    border: 1px solid color-mix(in oklab, var(--color-elevated) 40%, transparent);
+    color: var(--color-cream);
+    transition: border-color 200ms ease;
+  }
+
+  .field-input::placeholder {
+    color: var(--color-muted);
+  }
+
+  .field-input:hover {
+    border-color: color-mix(in oklab, var(--color-gold) 40%, transparent);
+  }
+
+  /* Prices: gold, Inter digits, aligned columns. */
+  .price {
+    font-family: var(--font-latin);
+    color: var(--color-gold);
+    font-variant-numeric: tabular-nums;
+  }
+}
