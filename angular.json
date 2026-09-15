@@ -15,12 +15,12 @@
         "@schematics/angular:component": {
           "skipTests": true,
           "type": "component",
-          "addTypeToClassName": false
+          "addTypeToClassName": true
         },
         "@schematics/angular:directive": {
           "skipTests": true,
           "type": "directive",
-          "addTypeToClassName": false
+          "addTypeToClassName": true
         },
         "@schematics/angular:guard": {
           "skipTests": true,
@@ -41,7 +41,7 @@
         "@schematics/angular:service": {
           "skipTests": true,
           "type": "service",
-          "addTypeToClassName": false
+          "addTypeToClassName": true
         },
         "@schematics/angular:module": {
           "typeSeparator": "."

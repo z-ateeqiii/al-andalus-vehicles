@@ -1,0 +1,16 @@
+<svg
+  [attr.width]="size()"
+  [attr.height]="size()"
+  viewBox="0 0 24 24"
+  [attr.fill]="filled() ? 'currentColor' : 'none'"
+  [attr.stroke]="filled() ? 'none' : 'currentColor'"
+  [attr.stroke-width]="filled() ? null : strokeWidth()"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  [attr.role]="label() ? 'img' : null"
+  [attr.aria-label]="label() || null"
+>
+  @for (d of paths(); track $index) {
+    <svg:path [attr.d]="d" />
+  }
+</svg>
