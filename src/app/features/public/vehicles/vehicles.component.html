@@ -1,0 +1,139 @@
+<div class="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-12">
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold text-cream md:text-3xl">جميع العربيات</h1>
+    <p class="mt-2 text-sm text-muted">
+      اختار من بين مجموعة متنوعة من العربيات اللي تناسب احتياجاتك.
+    </p>
+  </header>
+
+  @if (query()) {
+    <div class="mb-4 flex items-center gap-2 text-sm text-muted">
+      <span>نتايج البحث عن «{{ query() }}»</span>
+      <button
+        type="button"
+        class="flex min-h-11 items-center gap-1 text-gold transition hover:underline"
+        (click)="clearSearch()"
+      >
+        <app-icon name="close" [size]="14" />
+        امسح البحث
+      </button>
+    </div>
+  }
+
+  <!-- Category chips -->
+  <div class="mb-6 flex flex-wrap items-center gap-2">
+    @for (chip of chips(); track chip.value) {
+      <button
+        type="button"
+        class="min-h-11 rounded-full border px-4 text-sm transition-colors"
+        [class]="
+          category() === chip.value
+            ? 'border-gold bg-gold font-bold text-ink'
+            : 'border-elevated/60 text-cream hover:border-gold/60'
+        "
+        [attr.aria-pressed]="category() === chip.value"
+        (click)="selectCategory(chip.value)"
+      >
+        {{ chip.label }}
+      </button>
+    }
+
+    <button
+      type="button"
+      class="ms-auto flex min-h-11 items-center gap-2 rounded-control border border-elevated/60 px-4 text-sm text-cream transition-colors hover:border-gold/60 lg:hidden"
+      (click)="sheetOpen.set(true)"
+    >
+      <app-icon name="settings" [size]="16" />
+      الفلاتر
+    </button>
+  </div>
+
+  <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+    <!-- Desktop filter sidebar, at the RTL end so the grid leads. -->
+    <aside class="hidden w-64 shrink-0 lg:order-2 lg:block">
+      <div class="surface-panel sticky top-24 p-4">
+        <h2 class="mb-4 text-sm font-bold text-cream">فلتر البحث</h2>
+        <app-vehicle-filters
+          [brands]="brands()"
+          [priceOptions]="priceOptions()"
+          [showPassengerVehicles]="showPassenger()"
+          [selection]="selection()"
+          (apply)="applyFilters($event)"
+        />
+      </div>
+    </aside>
+
+    <div class="min-w-0 flex-1 lg:order-1">
+      @if (failed()) {
+        <app-error-state (retry)="load()" />
+      } @else if (sections().length === 0) {
+        <app-empty-state
+          icon="car"
+          title="مفيش عربيات متاحة دلوقتي"
+          message="جرّب تغيّر الفلاتر أو ارجع لكل العربيات."
+        />
+      } @else {
+        @if (resultCount() === 0) {
+          <app-empty-state
+            icon="inbox"
+            title="مفيش نتايج مطابقة"
+            message="مفيش عربيات بالمواصفات دي. جرّب تفتح الفلتر شوية."
+          />
+        } @else {
+          <div class="flex flex-col gap-10">
+            @for (section of sections(); track section.key) {
+              <section>
+                <h2 class="mb-4 text-lg font-bold text-cream md:text-xl">{{ section.title }}</h2>
+
+                @if (section.vehicles !== null && section.vehicles.length === 0) {
+                  <app-empty-state icon="car" [title]="section.emptyMessage" />
+                } @else {
+                  <app-vehicle-grid [vehicles]="section.vehicles" [skeletonCount]="5" />
+                }
+              </section>
+            }
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Mobile filter sheet -->
+@if (sheetOpen()) {
+  <div class="fixed inset-0 z-60 lg:hidden">
+    <button
+      type="button"
+      class="absolute inset-0 bg-ink/80 backdrop-blur-sm"
+      (click)="sheetOpen.set(false)"
+      aria-label="اقفل الفلاتر"
+    ></button>
+
+    <div
+      class="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-card border-t border-elevated/40 bg-surface p-5 pb-8"
+      role="dialog"
+      aria-modal="true"
+      aria-label="فلتر البحث"
+    >
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-cream">فلتر البحث</h2>
+        <button
+          type="button"
+          class="flex size-11 items-center justify-center rounded-control text-muted transition hover:text-cream"
+          (click)="sheetOpen.set(false)"
+          aria-label="اقفل الفلاتر"
+        >
+          <app-icon name="close" [size]="20" />
+        </button>
+      </div>
+
+      <app-vehicle-filters
+        [brands]="brands()"
+        [priceOptions]="priceOptions()"
+        [showPassengerVehicles]="showPassenger()"
+        [selection]="selection()"
+        (apply)="applyFilters($event)"
+      />
+    </div>
+  </div>
+}

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { HomeComponent } from './features/public/home/home.component';
+import { VehiclesComponent } from './features/public/vehicles/vehicles.component';
 import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
 import { PlaceholderPageComponent } from './shared/components/placeholder-page/placeholder-page.component';
 
@@ -16,7 +17,7 @@ export const routes: Routes = [
     component: PublicLayoutComponent,
     children: [
       { path: '', component: HomeComponent, data: { title: 'الرئيسية' } },
-      { path: 'vehicles', component: PlaceholderPageComponent, data: { title: 'جميع العربيات' } },
+      { path: 'vehicles', component: VehiclesComponent, data: { title: 'جميع العربيات' } },
       {
         path: 'vehicles/:id',
         component: PlaceholderPageComponent,

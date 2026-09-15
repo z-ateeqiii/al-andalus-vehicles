@@ -1,0 +1,59 @@
+<form class="flex flex-col gap-4" (submit)="$event.preventDefault(); submit()">
+  <div class="flex flex-col gap-1.5">
+    <label class="text-xs text-muted" for="filter-category">نوع العربية</label>
+    <select
+      id="filter-category"
+      class="field-input"
+      [value]="draftCategory()"
+      (change)="onCategory($any($event.target).value)"
+    >
+      <option value="all">الكل</option>
+      <option value="pickup">نص نقل</option>
+      @if (showPassengerVehicles()) {
+        <option value="passenger">ملاكي</option>
+      }
+    </select>
+  </div>
+
+  <div class="flex flex-col gap-1.5">
+    <label class="text-xs text-muted" for="filter-brand">الماركة</label>
+    <select
+      id="filter-brand"
+      class="field-input"
+      [value]="draftBrand()"
+      (change)="draftBrand.set($any($event.target).value)"
+    >
+      <option value="">الكل</option>
+      @for (brand of brands(); track brand) {
+        <option [value]="brand">{{ brand }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="flex flex-col gap-1.5">
+    <label class="text-xs text-muted" for="filter-price">السعر</label>
+    <select
+      id="filter-price"
+      class="field-input"
+      [value]="draftPrice()"
+      (change)="draftPrice.set($any($event.target).value)"
+    >
+      <option value="">الكل</option>
+      @for (option of priceOptions(); track option.value) {
+        <option [value]="option.value">{{ option.label }}</option>
+      }
+    </select>
+  </div>
+
+  <button type="submit" class="btn-primary w-full">تطبيق الفلتر</button>
+
+  @if (hasAnything()) {
+    <button
+      type="button"
+      class="min-h-11 text-sm text-muted transition hover:text-cream"
+      (click)="reset()"
+    >
+      امسح الفلاتر
+    </button>
+  }
+</form>
