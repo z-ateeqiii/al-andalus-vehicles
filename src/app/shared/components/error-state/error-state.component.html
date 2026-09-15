@@ -1,0 +1,21 @@
+<div
+  class="surface-panel flex flex-col items-center gap-3 px-6 py-12 text-center"
+  role="alert"
+>
+  <span
+    class="flex size-14 items-center justify-center rounded-full bg-danger/12 text-danger"
+  >
+    <app-icon name="alert-triangle" [size]="26" />
+  </span>
+
+  <h3 class="text-lg font-bold text-cream">{{ title() }}</h3>
+
+  @if (message()) {
+    <p class="max-w-sm text-sm leading-relaxed text-muted">{{ message() }}</p>
+  }
+
+  <button type="button" class="btn-secondary mt-2" (click)="retry.emit()">
+    <app-icon name="refresh" [size]="18" />
+    {{ retryLabel() }}
+  </button>
+</div>
