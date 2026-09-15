@@ -1,0 +1,76 @@
+<!-- Desktop: a sticky rail at the RTL start. -->
+<aside
+  class="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-e border-elevated/40 bg-surface md:flex"
+>
+  <ng-container *ngTemplateOutlet="body" />
+</aside>
+
+<!-- Mobile: the same rail as an overlay drawer. -->
+@if (open()) {
+  <div class="fixed inset-0 z-60 md:hidden">
+    <button
+      type="button"
+      class="absolute inset-0 bg-ink/80 backdrop-blur-sm"
+      (click)="close.emit()"
+      aria-label="اقفل القائمة"
+    ></button>
+
+    <div
+      class="drawer-panel absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col
+             border-e border-elevated/40 bg-surface"
+      role="dialog"
+      aria-modal="true"
+      aria-label="قائمة لوحة التحكم"
+    >
+      <ng-container *ngTemplateOutlet="body" />
+    </div>
+  </div>
+}
+
+<ng-template #body>
+  <div class="flex items-center justify-between border-b border-elevated/40 px-5 py-5">
+    <a routerLink="/admin/dashboard" (click)="close.emit()" aria-label="لوحة التحكم">
+      <app-logo size="sm" />
+    </a>
+
+    <button
+      type="button"
+      class="flex size-10 items-center justify-center rounded-control text-muted transition hover:text-cream md:hidden"
+      (click)="close.emit()"
+      aria-label="اقفل القائمة"
+    >
+      <app-icon name="close" [size]="20" />
+    </button>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto px-3 py-4" aria-label="أقسام لوحة التحكم">
+    <ul class="flex flex-col gap-1">
+      @for (item of items; track item.path) {
+        <li>
+          <a
+            class="admin-link flex min-h-11 items-center gap-3 rounded-control px-3 text-sm
+                   text-muted transition hover:bg-elevated/50 hover:text-cream"
+            [routerLink]="item.path"
+            routerLinkActive="is-active"
+            (click)="close.emit()"
+          >
+            <app-icon [name]="item.icon" [size]="20" />
+            {{ item.label }}
+          </a>
+        </li>
+      }
+    </ul>
+  </nav>
+
+  <div class="border-t border-elevated/40 px-3 py-4">
+    <button
+      type="button"
+      class="flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-sm text-muted
+             transition hover:bg-danger/10 hover:text-danger"
+      (click)="logout.emit()"
+    >
+      <app-icon name="logout" [size]="20" />
+      تسجيل الخروج
+    </button>
+  </div>
+</ng-template>

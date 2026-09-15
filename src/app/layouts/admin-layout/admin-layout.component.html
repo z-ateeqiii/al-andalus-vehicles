@@ -1,0 +1,33 @@
+<div class="flex min-h-dvh bg-ink">
+  <app-admin-sidebar
+    [open]="sidebarOpen()"
+    (close)="sidebarOpen.set(false)"
+    (logout)="logout()"
+  />
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header
+      class="flex items-center gap-3 border-b border-elevated/40 bg-surface px-4 py-4 md:px-6 md:py-5"
+    >
+      <button
+        type="button"
+        class="flex size-11 items-center justify-center rounded-control text-cream transition hover:text-gold md:hidden"
+        (click)="sidebarOpen.set(true)"
+        aria-label="افتح القائمة"
+      >
+        <app-icon name="menu" [size]="24" />
+      </button>
+
+      <div class="min-w-0">
+        <h1 class="truncate text-lg font-bold text-cream md:text-xl">{{ pageTitle() }}</h1>
+        <p class="truncate text-xs text-muted md:text-sm">مرحبًا بيك في لوحة تحكم الأندلس</p>
+      </div>
+    </header>
+
+    <main class="flex-1 p-4 md:p-6">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+
+<app-toast />
