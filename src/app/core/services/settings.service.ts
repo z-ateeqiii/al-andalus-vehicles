@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { DocumentData, Timestamp, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { environment } from '../../../environments/environment';
 import { FIRESTORE } from '../config/firebase.config';
@@ -24,13 +24,24 @@ export class SettingsService {
   private readonly firestore = inject(FIRESTORE);
   private readonly transferCache = inject(TransferCacheService);
 
+  private readonly loaded = signal<ShowroomSettings | null>(null);
+
+  /**
+   * The last settings read, or `null` before the first one completes.
+   *
+   * Exists so callers that must act inside a user gesture — opening the
+   * WhatsApp tab, which a popup blocker kills if it happens after an await —
+   * can read the number synchronously.
+   */
+  readonly current = this.loaded.asReadonly();
+
   /**
    * Never rejects and never resolves to null: a missing or unreadable
    * settings document falls back to the bundled defaults so the home page
    * still renders. The WhatsApp number falls back to the environment value.
    */
-  load(): Promise<ShowroomSettings> {
-    return this.transferCache.through('settings:showroom', async () => {
+  async load(): Promise<ShowroomSettings> {
+    const settings = await this.transferCache.through('settings:showroom', async () => {
       try {
         const snapshot = await getDoc(doc(this.firestore, COLLECTION, DOCUMENT_ID));
         return snapshot.exists() ? this.merge(snapshot.data()) : this.merge(null);
@@ -38,6 +49,9 @@ export class SettingsService {
         return this.merge(null);
       }
     });
+
+    this.loaded.set(settings);
+    return settings;
   }
 
   /** Admin write. Creates the document if the owner is saving for the first time. */
@@ -47,6 +61,9 @@ export class SettingsService {
       { ...draft, updatedAt: serverTimestamp() },
       { merge: true },
     );
+
+    // Keep the synchronous readers in step with what was just saved.
+    this.loaded.set({ ...this.merge(draft as DocumentData) });
   }
 
   /**
