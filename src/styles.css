@@ -72,6 +72,13 @@
   --color-cream: #e8e1d3; /* primary text */
   --color-muted: #9a9288; /* secondary text — warm grey */
 
+  /* Semantic status colours. Extensions to panel 06, warm enough to sit
+     beside the gold: toasts, form validation and vehicle status badges all
+     need a success / danger / warning reading the core six cannot give. */
+  --color-success: #7fb98b;
+  --color-danger: #d9694c;
+  --color-warning: #e3b341;
+
   --font-sans: 'Tajawal', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-latin: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
