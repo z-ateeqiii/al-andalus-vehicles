@@ -1,0 +1,82 @@
+<div
+  class="flex flex-col gap-3"
+  (keydown)="onKeydown($event)"
+  tabindex="0"
+  role="group"
+  aria-label="صور العربية"
+>
+  <div
+    class="surface-panel relative aspect-[4/3] overflow-hidden"
+    (touchstart)="onTouchStart($event)"
+    (touchend)="onTouchEnd($event)"
+  >
+    @if (current()) {
+      <app-cloud-image
+        [src]="current()"
+        [alt]="alt()"
+        sizes="(min-width: 1024px) 55vw, 100vw"
+        [width]="1200"
+        [height]="900"
+        [baseWidth]="1200"
+        [priority]="true"
+        imgClass="h-full w-full object-cover"
+        class="h-full w-full"
+      />
+    }
+
+    @if (hasMany()) {
+      <button
+        type="button"
+        class="absolute top-1/2 start-3 flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-ink/70 text-cream backdrop-blur transition hover:text-gold"
+        (click)="previous()"
+        aria-label="الصورة السابقة"
+      >
+        <app-icon name="chevron-start" [size]="20" />
+      </button>
+
+      <button
+        type="button"
+        class="absolute top-1/2 end-3 flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-ink/70 text-cream backdrop-blur transition hover:text-gold"
+        (click)="next()"
+        aria-label="الصورة اللي بعدها"
+      >
+        <app-icon name="chevron-end" [size]="20" />
+      </button>
+
+      <span
+        dir="ltr"
+        class="absolute bottom-3 end-3 rounded-full bg-ink/75 px-2.5 py-1 font-latin text-xs text-cream"
+      >
+        {{ index() + 1 }} / {{ images().length }}
+      </span>
+    }
+  </div>
+
+  @if (hasMany()) {
+    <ul class="flex gap-2 overflow-x-auto pb-1">
+      @for (image of images(); track image; let i = $index) {
+        <li class="shrink-0">
+          <button
+            type="button"
+            class="block aspect-[4/3] w-20 overflow-hidden rounded-control border transition-colors sm:w-24"
+            [class]="i === index() ? 'border-gold' : 'border-elevated/60 hover:border-gold/60'"
+            (click)="select(i)"
+            [attr.aria-current]="i === index()"
+            [attr.aria-label]="'صورة رقم ' + (i + 1)"
+          >
+            <app-cloud-image
+              [src]="image"
+              alt=""
+              sizes="96px"
+              [width]="200"
+              [height]="150"
+              [baseWidth]="400"
+              imgClass="h-full w-full object-cover"
+              class="h-full w-full"
+            />
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>

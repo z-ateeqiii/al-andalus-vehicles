@@ -1,0 +1,137 @@
+@if (failed()) {
+  <div class="mx-auto w-full max-w-7xl px-4 py-16 md:px-6">
+    <app-error-state (retry)="reload()" />
+  </div>
+} @else if (loading()) {
+  <app-vehicle-details-skeleton />
+} @else if (vehicle(); as car) {
+  <div class="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-12">
+    <div class="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      <!-- Start column: the gallery. -->
+      <app-vehicle-gallery [images]="images()" [alt]="title()" />
+
+      <!-- End column: identity, specs and the calls to action. -->
+      <div class="flex flex-col gap-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold text-cream md:text-3xl">{{ title() }}</h1>
+
+          @if (car.color) {
+            <span class="flex items-center gap-2 text-sm text-muted">
+              <span
+                class="size-2.5 shrink-0 rounded-full border border-cream/20"
+                [style.background-color]="car.colorHex || 'transparent'"
+              ></span>
+              {{ car.color }}
+            </span>
+          }
+
+          @if (car.status === 'reserved') {
+            <span
+              class="w-fit rounded-full border border-warning/40 bg-warning/10 px-3 py-1 text-xs font-bold text-warning"
+            >
+              محجوزة
+            </span>
+          }
+        </div>
+
+        <!-- Three columns, reflowing cleanly at 2, 4 or 6 cells. -->
+        <dl
+          class="grid grid-cols-2 gap-px overflow-hidden rounded-card bg-elevated/40 sm:grid-cols-3"
+        >
+          @for (spec of specs(); track spec.label) {
+            <div class="flex flex-col items-center gap-1 bg-surface px-3 py-4 text-center">
+              <app-icon [name]="spec.icon" [size]="20" class="text-muted" />
+              <dt class="text-xs text-muted">{{ spec.label }}</dt>
+              <dd class="text-sm font-bold" [class]="spec.emphasised ? 'price' : 'text-cream'">
+                {{ spec.value }}
+              </dd>
+            </div>
+          }
+        </dl>
+
+        @if (car.description) {
+          <p class="text-sm leading-loose text-muted">{{ car.description }}</p>
+        }
+
+        <div class="flex flex-col gap-3">
+          <!-- Hidden on mobile: the sticky bar at the bottom carries it there. -->
+          <button
+            type="button"
+            class="btn-primary hidden w-full md:flex"
+            (click)="contactOnWhatsApp()"
+          >
+            <app-icon name="whatsapp" [size]="18" />
+            تواصل معانا على واتساب
+          </button>
+
+          <button type="button" class="btn-secondary w-full" (click)="toggleFavorite()">
+            <app-icon name="heart" [size]="18" [fill]="isSaved()" />
+            {{ isSaved() ? 'اتحفظت في المفضلة' : 'احفظ في المفضلة' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    @if (tiles().length) {
+      <section class="mt-12">
+        <h2 class="mb-4 text-lg font-bold text-cream md:text-xl">مواصفات العربية</h2>
+        <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          @for (tile of tiles(); track tile.label) {
+            <li class="surface-panel flex flex-col items-center gap-2 px-3 py-5 text-center">
+              <app-icon [name]="tile.icon" [size]="24" class="text-gold" />
+              <span class="text-xs text-muted">{{ tile.label }}</span>
+              @if (tile.value) {
+                <span class="text-sm font-bold text-cream">{{ tile.value }}</span>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (extraImages().length) {
+      <section class="mt-12">
+        <h2 class="mb-4 text-lg font-bold text-cream md:text-xl">الصور</h2>
+        <ul class="flex gap-3 overflow-x-auto pb-2">
+          @for (image of extraImages(); track image) {
+            <li class="w-56 shrink-0 sm:w-64">
+              <div class="surface-panel aspect-[4/3] overflow-hidden">
+                <app-cloud-image
+                  [src]="image"
+                  [alt]="title()"
+                  sizes="256px"
+                  [width]="512"
+                  [height]="384"
+                  [baseWidth]="800"
+                  imgClass="h-full w-full object-cover"
+                  class="h-full w-full"
+                />
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </div>
+
+  <!-- Mobile: sticky above the tab bar. -->
+  <div
+    class="fixed inset-x-0 bottom-14 z-30 border-t border-elevated/40 bg-ink/95 p-3 backdrop-blur md:hidden"
+  >
+    <button type="button" class="btn-primary w-full" (click)="contactOnWhatsApp()">
+      <app-icon name="whatsapp" [size]="18" />
+      تواصل معانا على واتساب
+    </button>
+  </div>
+  <div class="h-20 md:hidden" aria-hidden="true"></div>
+} @else {
+  <div class="mx-auto w-full max-w-3xl px-4 py-16 md:px-6">
+    <app-empty-state
+      icon="car"
+      title="العربية دي مش موجودة"
+      message="يمكن تكون اتباعت أو اتشالت من المعرض."
+      actionLabel="شوف كل العربيات"
+      actionLink="/vehicles"
+    />
+  </div>
+}

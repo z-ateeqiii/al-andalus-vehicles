@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { HomeComponent } from './features/public/home/home.component';
+import { VehicleDetailsComponent } from './features/public/vehicle-details/vehicle-details.component';
 import { VehiclesComponent } from './features/public/vehicles/vehicles.component';
 import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
 import { PlaceholderPageComponent } from './shared/components/placeholder-page/placeholder-page.component';
@@ -20,7 +21,7 @@ export const routes: Routes = [
       { path: 'vehicles', component: VehiclesComponent, data: { title: 'جميع العربيات' } },
       {
         path: 'vehicles/:id',
-        component: PlaceholderPageComponent,
+        component: VehicleDetailsComponent,
         data: { title: 'تفاصيل العربية' },
       },
       { path: 'favorites', component: PlaceholderPageComponent, data: { title: 'المفضلة' } },

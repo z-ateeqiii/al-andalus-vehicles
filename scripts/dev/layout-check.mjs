@@ -23,9 +23,20 @@ for (const path of paths) {
       const de = document.documentElement;
       const vw = de.clientWidth;
       const offenders = [];
+      // Content inside a deliberate horizontal scroller (the الصور strip, the
+      // thumbnail rail) is supposed to sit outside its box — not a defect.
+      const insideScroller = (el) => {
+        for (let node = el.parentElement; node; node = node.parentElement) {
+          const overflowX = getComputedStyle(node).overflowX;
+          if (overflowX === 'auto' || overflowX === 'scroll') return true;
+        }
+        return false;
+      };
+
       for (const el of document.querySelectorAll('*')) {
         const r = el.getBoundingClientRect();
         if (r.width === 0 && r.height === 0) continue;
+        if (insideScroller(el)) continue;
         if (r.right > vw + 1 || r.left < -1) {
           offenders.push({
             tag: el.tagName.toLowerCase(),

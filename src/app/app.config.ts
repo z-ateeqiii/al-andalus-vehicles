@@ -4,7 +4,7 @@ import {
   provideZonelessChangeDetection,
 } from '@angular/core';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -15,6 +15,8 @@ export const appConfig: ApplicationConfig = {
       routes,
       // `من نحن` and `تواصل معنا` are fragment links into the home page.
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
+      // Route params arrive as component inputs — /vehicles/:id binds to `id`.
+      withComponentInputBinding(),
     ),
     provideClientHydration(withEventReplay()),
   ],
