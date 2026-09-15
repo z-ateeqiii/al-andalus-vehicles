@@ -1,13 +1,31 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>AlAndalus</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-</head>
-<body>
-  <app-root></app-root>
-</body>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <title>معرض الأندلس لبيع وشراء السيارات</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0F0D0A" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+
+    <!-- Self-hosted fonts: preload the faces that paint above the fold. -->
+    <link
+      rel="preload"
+      href="fonts/tajawal-arabic-700.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="fonts/tajawal-arabic-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="preload" href="fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body class="bg-ink text-cream antialiased">
+    <app-root></app-root>
+  </body>
 </html>
