@@ -1,5 +1,12 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Injectable, PLATFORM_ID, TransferState, inject, makeStateKey } from '@angular/core';
+import {
+  Injectable,
+  PLATFORM_ID,
+  PendingTasks,
+  TransferState,
+  inject,
+  makeStateKey,
+} from '@angular/core';
 import { Timestamp } from 'firebase/firestore';
 
 /**
@@ -72,6 +79,7 @@ function decode(value: unknown): unknown {
 @Injectable({ providedIn: 'root' })
 export class TransferCacheService {
   private readonly transferState = inject(TransferState);
+  private readonly pendingTasks = inject(PendingTasks);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /** Collapses concurrent reads of the same key into one Firestore request. */
@@ -100,6 +108,11 @@ export class TransferCacheService {
       return pending as Promise<T>;
     }
 
+    // Holds the application "unstable" until the read resolves. Without this
+    // the server serialises the page before Firestore answers, and every
+    // server-rendered route ships empty markup with nothing in TransferState.
+    const taskDone = this.pendingTasks.add();
+
     const request = read()
       .then((value) => {
         if (!this.isBrowser) {
@@ -109,6 +122,7 @@ export class TransferCacheService {
       })
       .finally(() => {
         this.inFlight.delete(key);
+        taskDone();
       });
 
     this.inFlight.set(key, request);
