@@ -1,0 +1,21 @@
+/* Scrim in from the RTL start edge (the right), so the hero text stays
+   readable over the image subject. Physical directions are unavoidable in a
+   gradient — CSS has no logical keyword — so RTL is the default and LTR is
+   the override. */
+.hero-scrim-inline {
+  background-image: linear-gradient(
+    to left,
+    color-mix(in oklab, var(--color-ink) 92%, transparent),
+    color-mix(in oklab, var(--color-ink) 35%, transparent) 55%,
+    transparent 85%
+  );
+}
+
+[dir='ltr'] .hero-scrim-inline {
+  background-image: linear-gradient(
+    to right,
+    color-mix(in oklab, var(--color-ink) 92%, transparent),
+    color-mix(in oklab, var(--color-ink) 35%, transparent) 55%,
+    transparent 85%
+  );
+}

@@ -1,0 +1,27 @@
+<section class="relative flex min-h-dvh flex-col justify-end overflow-hidden bg-surface">
+  <div class="mx-auto w-full max-w-7xl px-4 pt-28 pb-10 md:px-6 md:pb-14">
+    <div class="flex max-w-2xl flex-col items-start gap-4">
+      <app-skeleton width="min(18rem, 70%)" height="3.5rem" />
+      <app-skeleton width="min(14rem, 55%)" height="2rem" />
+      <app-skeleton width="min(28rem, 90%)" height="1rem" [lines]="2" class="w-full" />
+
+      <div class="mt-2 flex flex-wrap gap-3">
+        <app-skeleton shape="block" width="11rem" height="2.75rem" />
+        <app-skeleton shape="block" width="9rem" height="2.75rem" />
+      </div>
+    </div>
+
+    <div class="mt-10 flex flex-col gap-3 border-t border-elevated/40 pt-6 sm:flex-row sm:gap-x-10">
+      @for (item of trustPlaceholders; track item) {
+        <app-skeleton width="10rem" height="1.25rem" />
+      }
+    </div>
+  </div>
+</section>
+
+<section class="mx-auto w-full max-w-7xl px-4 py-14 md:px-6 md:py-20">
+  <div class="mb-6">
+    <app-skeleton width="9rem" height="1.75rem" />
+  </div>
+  <app-vehicle-grid [vehicles]="null" [skeletonCount]="5" />
+</section>

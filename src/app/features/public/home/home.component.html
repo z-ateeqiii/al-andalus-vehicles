@@ -1,0 +1,155 @@
+@if (settings(); as showroom) {
+  <!-- ── Hero ─────────────────────────────────────────────────────────── -->
+  <section class="relative flex min-h-dvh flex-col overflow-hidden">
+    @if (showroom.heroImageUrl) {
+      <app-cloud-image
+        [src]="showroom.heroImageUrl"
+        alt=""
+        sizes="100vw"
+        [baseWidth]="1600"
+        [priority]="true"
+        imgClass="absolute inset-0 h-full w-full object-cover"
+        class="absolute inset-0"
+      />
+    }
+
+    <!-- Two scrims: one up from the bottom, one in from the RTL start edge. -->
+    <div class="absolute inset-0 bg-gradient-to-t from-ink via-ink/55 to-ink/10"></div>
+    <div class="hero-scrim-inline absolute inset-0"></div>
+
+    <div class="relative flex flex-1 items-center">
+      <div class="mx-auto w-full max-w-7xl px-4 pt-24 pb-8 md:px-6">
+        <div class="flex w-full max-w-2xl flex-col items-start gap-4 text-start">
+          <h1 class="flex flex-col gap-1">
+            <span class="text-5xl leading-tight font-extrabold text-cream sm:text-6xl lg:text-7xl">
+              {{ showroom.heroHeading }}
+            </span>
+            <span class="text-2xl font-bold text-cream/90 sm:text-3xl lg:text-4xl">
+              {{ showroom.heroSubheading }}
+            </span>
+          </h1>
+
+          @if (showroom.heroDescription) {
+            <p class="max-w-xl text-sm leading-relaxed text-cream/70 sm:text-base">
+              {{ showroom.heroDescription }}
+            </p>
+          }
+
+          <div class="mt-2 flex w-full flex-wrap items-center gap-3">
+            <a class="btn-primary" routerLink="/vehicles">
+              تصفح العربيات
+              <app-icon name="arrow-end" [size]="18" />
+            </a>
+
+            <button type="button" class="btn-secondary" (click)="contactOnWhatsApp()">
+              <app-icon name="whatsapp" [size]="18" />
+              تواصل معانا
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="relative mx-auto w-full max-w-7xl px-4 pb-2 md:px-6">
+      <ul
+        class="flex flex-col gap-3 border-t border-elevated/40 pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-10"
+      >
+        @for (item of trustItems; track item.label) {
+          <li class="flex items-center gap-2.5 text-sm text-cream/80">
+            <app-icon [name]="item.icon" [size]="20" class="text-gold" />
+            {{ item.label }}
+          </li>
+        }
+      </ul>
+    </div>
+
+    <a
+      href="#featured"
+      class="relative mx-auto mb-4 flex size-11 items-center justify-center text-muted transition hover:text-gold"
+      aria-label="انزل تحت"
+    >
+      <app-icon name="mouse" [size]="22" />
+    </a>
+  </section>
+
+  <!-- ── أبرز العربيات ────────────────────────────────────────────────── -->
+  <section id="featured" class="mx-auto w-full max-w-7xl scroll-mt-24 px-4 py-14 md:px-6 md:py-20">
+    <div class="mb-6 flex items-end justify-between gap-4">
+      <h2 class="text-2xl font-bold text-cream md:text-3xl">أبرز العربيات</h2>
+      <a class="text-sm text-gold transition hover:underline" routerLink="/vehicles">شوف الكل</a>
+    </div>
+
+    @if (failed()) {
+      <app-error-state (retry)="loadVehicles()" />
+    } @else if (featured()?.length === 0) {
+      <app-empty-state
+        icon="car"
+        title="لسه مفيش عربيات مميزة دلوقتي"
+        message="تقدر تتصفح كل العربيات المتاحة في المعرض."
+        actionLabel="شوف كل العربيات"
+        actionLink="/vehicles"
+      />
+    } @else {
+      <app-vehicle-grid [vehicles]="featured()" [skeletonCount]="5" />
+    }
+  </section>
+
+  <!-- ── من نحن ───────────────────────────────────────────────────────── -->
+  <section id="about" class="scroll-mt-24 border-y border-elevated/40 bg-surface">
+    <div class="mx-auto w-full max-w-7xl px-4 py-14 md:px-6 md:py-20">
+      <h2 class="mb-4 text-2xl font-bold text-cream md:text-3xl">من نحن</h2>
+      <p class="max-w-3xl text-sm leading-loose text-muted md:text-base">
+        {{ showroom.showroomName }} معرض متخصص في بيع وشراء عربيات النص نقل والربع نقل، وعندنا كمان
+        قسم للملاكي. بنختار كل عربية بعناية ونتأكد من حالتها قبل ما تتعرض، وبنساعدك في إجراءات النقل
+        والترخيص من أول يوم. هدفنا إنك تطلع من عندنا بعربية تثق فيها وسعر تكون مرتاح ليه.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── تواصل معانا ──────────────────────────────────────────────────── -->
+  <section id="contact" class="mx-auto w-full max-w-7xl scroll-mt-24 px-4 py-14 md:px-6 md:py-20">
+    <h2 class="mb-6 text-2xl font-bold text-cream md:text-3xl">تواصل معانا</h2>
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      @if (showroom.phoneNumber) {
+        <a
+          class="surface-panel flex items-center gap-3 p-4 transition-colors hover:border-gold/60"
+          [href]="'tel:' + showroom.phoneNumber"
+        >
+          <app-icon name="phone" [size]="20" class="text-gold" />
+          <span class="flex flex-col">
+            <span class="text-xs text-muted">تليفون</span>
+            <span dir="ltr" class="font-latin text-sm text-cream">{{ showroom.phoneNumber }}</span>
+          </span>
+        </a>
+      }
+
+      @if (showroom.address) {
+        <div class="surface-panel flex items-center gap-3 p-4">
+          <app-icon name="map-pin" [size]="20" class="text-gold" />
+          <span class="flex flex-col">
+            <span class="text-xs text-muted">العنوان</span>
+            <span class="text-sm text-cream">{{ showroom.address }}</span>
+          </span>
+        </div>
+      }
+
+      @if (showroom.workingHours) {
+        <div class="surface-panel flex items-center gap-3 p-4">
+          <app-icon name="clock" [size]="20" class="text-gold" />
+          <span class="flex flex-col">
+            <span class="text-xs text-muted">مواعيد العمل</span>
+            <span class="text-sm text-cream">{{ showroom.workingHours }}</span>
+          </span>
+        </div>
+      }
+    </div>
+
+    <button type="button" class="btn-primary mt-6 w-full sm:w-auto" (click)="contactOnWhatsApp()">
+      <app-icon name="whatsapp" [size]="18" />
+      تواصل معانا على واتساب
+    </button>
+  </section>
+} @else {
+  <app-home-skeleton />
+}
