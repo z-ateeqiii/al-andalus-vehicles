@@ -18,7 +18,7 @@ const SWIPE_THRESHOLD_PX = 40;
   templateUrl: './vehicle-gallery.component.html',
   styleUrl: './vehicle-gallery.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block' },
+  host: { class: 'block min-w-0' },
 })
 export class VehicleGalleryComponent {
   readonly images = input.required<readonly string[]>();

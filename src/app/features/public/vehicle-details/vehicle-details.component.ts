@@ -7,7 +7,6 @@ import {
   input,
   signal,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { VEHICLE_CATEGORY_LABELS, Vehicle } from '../../../core/models/vehicle.model';
 import { FavoritesService } from '../../../core/services/favorites.service';
 import { SeoService } from '../../../core/services/seo.service';
@@ -51,14 +50,12 @@ function iconForFeature(feature: string): IconName {
 @Component({
   selector: 'app-vehicle-details',
   imports: [
-    RouterLink,
     VehicleGalleryComponent,
     VehicleDetailsSkeletonComponent,
     CloudImageComponent,
     IconComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    EgpPricePipe,
   ],
   templateUrl: './vehicle-details.component.html',
   styleUrl: './vehicle-details.component.css',
