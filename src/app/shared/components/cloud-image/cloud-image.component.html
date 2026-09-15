@@ -1,0 +1,12 @@
+<img
+  [src]="resolved()"
+  [attr.srcset]="srcset()"
+  [attr.sizes]="srcset() ? sizes() : null"
+  [alt]="alt()"
+  [attr.width]="width()"
+  [attr.height]="height()"
+  [attr.loading]="priority() ? 'eager' : 'lazy'"
+  [attr.fetchpriority]="priority() ? 'high' : null"
+  [attr.decoding]="priority() ? 'sync' : 'async'"
+  [class]="imgClass()"
+/>
