@@ -1,16 +1,13 @@
 import { Routes } from '@angular/router';
+import { FavoritesComponent } from './features/public/favorites/favorites.component';
 import { HomeComponent } from './features/public/home/home.component';
 import { VehicleDetailsComponent } from './features/public/vehicle-details/vehicle-details.component';
 import { VehiclesComponent } from './features/public/vehicles/vehicles.component';
 import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
-import { PlaceholderPageComponent } from './shared/components/placeholder-page/placeholder-page.component';
 
 /**
  * Public routes render inside `public-layout`; the admin area is lazy-loaded
  * and brings its own layout.
- *
- * TODO(features): every `PlaceholderPageComponent` below is a stub. Each one
- * is replaced by its real page in a later increment.
  */
 export const routes: Routes = [
   {
@@ -24,7 +21,7 @@ export const routes: Routes = [
         component: VehicleDetailsComponent,
         data: { title: 'تفاصيل العربية' },
       },
-      { path: 'favorites', component: PlaceholderPageComponent, data: { title: 'المفضلة' } },
+      { path: 'favorites', component: FavoritesComponent, data: { title: 'المفضلة' } },
     ],
   },
   {
