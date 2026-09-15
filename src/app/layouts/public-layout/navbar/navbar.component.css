@@ -1,0 +1,18 @@
+/* Active link: gold, with a short gold underline. Storyboard panel 02. */
+.nav-link {
+  position: relative;
+}
+
+.nav-link.is-active {
+  color: var(--color-gold);
+}
+
+.nav-link.is-active::after {
+  content: '';
+  position: absolute;
+  inset-inline: 20%;
+  bottom: -0.5rem;
+  block-size: 2px;
+  border-radius: 2px;
+  background-color: var(--color-gold);
+}

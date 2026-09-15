@@ -1,0 +1,73 @@
+@if (open()) {
+  <div class="fixed inset-0 z-60 md:hidden">
+    <button
+      type="button"
+      class="absolute inset-0 bg-ink/80 backdrop-blur-sm"
+      (click)="close.emit()"
+      aria-label="اقفل القائمة"
+    ></button>
+
+    <div
+      class="drawer-panel absolute inset-y-0 start-0 flex w-[82%] max-w-xs flex-col
+             border-e border-elevated/40 bg-surface"
+      role="dialog"
+      aria-modal="true"
+      aria-label="قائمة التنقل"
+    >
+      <div class="flex items-center justify-between border-b border-elevated/40 px-5 py-4">
+        <a routerLink="/" (click)="close.emit()" aria-label="الصفحة الرئيسية">
+          <app-logo size="sm" />
+        </a>
+
+        <button
+          type="button"
+          class="flex size-11 items-center justify-center rounded-control text-muted transition hover:text-cream"
+          (click)="close.emit()"
+          aria-label="اقفل القائمة"
+        >
+          <app-icon name="close" [size]="22" />
+        </button>
+      </div>
+
+      <nav class="flex-1 overflow-y-auto px-3 py-4">
+        <ul class="flex flex-col gap-1">
+          @for (link of links(); track link.label) {
+            <li>
+              @if (link.fragment) {
+                <a
+                  class="flex min-h-11 items-center rounded-control px-3 text-base text-cream transition hover:bg-elevated/50 hover:text-gold"
+                  [routerLink]="link.path"
+                  [fragment]="link.fragment"
+                  (click)="close.emit()"
+                >
+                  {{ link.label }}
+                </a>
+              } @else {
+                <a
+                  class="flex min-h-11 items-center rounded-control px-3 text-base text-cream transition hover:bg-elevated/50 hover:text-gold"
+                  [routerLink]="link.path"
+                  routerLinkActive="bg-elevated/50 text-gold"
+                  [routerLinkActiveOptions]="{ exact: !!link.exact }"
+                  (click)="close.emit()"
+                >
+                  {{ link.label }}
+                </a>
+              }
+            </li>
+          }
+        </ul>
+      </nav>
+
+      <div class="border-t border-elevated/40 px-3 py-4">
+        <a
+          routerLink="/admin/login"
+          class="flex min-h-11 items-center gap-2 rounded-control px-3 text-sm text-muted transition hover:text-cream"
+          (click)="close.emit()"
+        >
+          <app-icon name="user" [size]="18" />
+          دخول الإدارة
+        </a>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,49 @@
+<footer class="border-t border-elevated/40 bg-surface">
+  <div class="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:grid-cols-2 md:px-6 lg:grid-cols-3">
+    <div class="flex flex-col items-start gap-3">
+      <app-logo size="md" [tagline]="true" />
+      <p class="max-w-xs text-sm leading-relaxed text-muted">
+        معرض الأندلس لبيع وشراء السيارات — نص نقل وربع نقل وملاكي، بأسعار مناسبة وإجراءات
+        سهلة وسريعة.
+      </p>
+    </div>
+
+    <nav aria-labelledby="footer-links">
+      <h2 id="footer-links" class="mb-4 text-sm font-bold text-cream">روابط سريعة</h2>
+      <ul class="flex flex-col gap-2">
+        @for (link of quickLinks; track link.path) {
+          <li>
+            <a
+              class="text-sm text-muted transition hover:text-gold"
+              [routerLink]="link.path"
+              >{{ link.label }}</a
+            >
+          </li>
+        }
+      </ul>
+    </nav>
+
+    <div>
+      <h2 class="mb-4 text-sm font-bold text-cream">تواصل معانا</h2>
+      <ul class="flex flex-col gap-3 text-sm text-muted">
+        <li class="flex items-center gap-2">
+          <app-icon name="phone" [size]="16" class="text-gold" />
+          <span dir="ltr" class="font-latin">+20 100 000 0000</span>
+        </li>
+        <li class="flex items-center gap-2">
+          <app-icon name="map-pin" [size]="16" class="text-gold" />
+          <span>العنوان هيتحدد من لوحة التحكم</span>
+        </li>
+        <li class="flex items-center gap-2">
+          <app-icon name="clock" [size]="16" class="text-gold" />
+          <span>مواعيد العمل هتتحدد من لوحة التحكم</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="border-t border-elevated/40 px-4 py-5 text-center text-xs text-muted md:px-6">
+    <span class="font-latin">© {{ year }}</span>
+    معرض الأندلس — كل الحقوق محفوظة
+  </div>
+</footer>

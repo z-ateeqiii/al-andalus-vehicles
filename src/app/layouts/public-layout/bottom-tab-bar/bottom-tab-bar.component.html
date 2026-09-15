@@ -1,0 +1,31 @@
+<nav
+  class="fixed inset-x-0 bottom-0 z-40 border-t border-elevated/40 bg-ink/95 backdrop-blur md:hidden"
+  aria-label="التنقل السريع"
+>
+  <ul class="mx-auto flex max-w-lg items-stretch pb-[env(safe-area-inset-bottom)]">
+    @for (tab of tabs; track tab.label) {
+      <li class="flex-1">
+        @if (tab.fragment) {
+          <a
+            class="flex min-h-14 flex-col items-center justify-center gap-1 text-muted transition hover:text-gold"
+            [routerLink]="tab.path"
+            [fragment]="tab.fragment"
+          >
+            <app-icon [name]="tab.icon" [size]="20" />
+            <span class="text-[0.7rem] leading-none">{{ tab.label }}</span>
+          </a>
+        } @else {
+          <a
+            class="flex min-h-14 flex-col items-center justify-center gap-1 text-muted transition hover:text-gold"
+            [routerLink]="tab.path"
+            routerLinkActive="text-gold"
+            [routerLinkActiveOptions]="{ exact: !!tab.exact }"
+          >
+            <app-icon [name]="tab.icon" [size]="20" />
+            <span class="text-[0.7rem] leading-none">{{ tab.label }}</span>
+          </a>
+        }
+      </li>
+    }
+  </ul>
+</nav>
