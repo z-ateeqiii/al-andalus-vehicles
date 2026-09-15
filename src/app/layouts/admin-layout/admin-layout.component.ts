@@ -4,6 +4,7 @@ import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/ro
 import { filter, map, startWith } from 'rxjs';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { ToastComponent } from '../../shared/components/toast/toast.component';
+import { AuthService } from '../../core/auth/auth.service';
 import { AdminSidebarComponent } from './admin-sidebar/admin-sidebar.component';
 
 /**
@@ -20,6 +21,7 @@ import { AdminSidebarComponent } from './admin-sidebar/admin-sidebar.component';
 export class AdminLayoutComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly auth = inject(AuthService);
 
   protected readonly sidebarOpen = signal(false);
 
@@ -33,10 +35,10 @@ export class AdminLayoutComponent {
     { initialValue: this.deepestTitle() },
   );
 
-  protected logout(): void {
-    // TODO(auth): call AuthService.signOut() once the Firebase auth layer lands.
+  protected async logout(): Promise<void> {
     this.sidebarOpen.set(false);
-    this.router.navigate(['/admin/login']);
+    await this.auth.signOut();
+    await this.router.navigate(['/admin/login']);
   }
 
   private deepestTitle(): string {

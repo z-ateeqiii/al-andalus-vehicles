@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { adminGuard } from '../../core/guards/admin.guard';
 import { AdminLayoutComponent } from '../../layouts/admin-layout/admin-layout.component';
 import { PlaceholderPageComponent } from '../../shared/components/placeholder-page/placeholder-page.component';
 
@@ -6,8 +7,7 @@ import { PlaceholderPageComponent } from '../../shared/components/placeholder-pa
  * Lazy-loaded admin area. Login sits outside the layout — there is no sidebar
  * to show before signing in. There is no public sign-up route.
  *
- * TODO(auth): guard the layout branch with the auth guard once AuthService
- * lands, and replace every PlaceholderPageComponent with its real page.
+ * TODO(features): replace every PlaceholderPageComponent with its real page.
  */
 export const ADMIN_ROUTES: Routes = [
   {
@@ -18,6 +18,7 @@ export const ADMIN_ROUTES: Routes = [
   {
     path: '',
     component: AdminLayoutComponent,
+    canActivate: [adminGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
