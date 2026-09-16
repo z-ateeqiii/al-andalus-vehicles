@@ -2,21 +2,7 @@
    Physical directions are unavoidable in a gradient — CSS has no logical
    keyword — so RTL is the default and LTR is the override. */
 .hero-scrim-inline {
-  background-image: linear-gradient(
-    to left,
-    color-mix(in oklab, var(--color-ink) 58%, transparent) 0%,
-    color-mix(in oklab, var(--color-ink) 22%, transparent) 60%,
-    transparent 88%
-  );
-}
-
-[dir='ltr'] .hero-scrim-inline {
-  background-image: linear-gradient(
-    to right,
-    color-mix(in oklab, var(--color-ink) 58%, transparent) 0%,
-    color-mix(in oklab, var(--color-ink) 22%, transparent) 60%,
-    transparent 88%
-  );
+  background-image: none;
 }
 
 @media (min-width: 768px) {
@@ -45,9 +31,11 @@
 .hero-scrim-block {
   background-image: linear-gradient(
     to top,
-    color-mix(in oklab, var(--color-ink) 72%, transparent) 0%,
-    color-mix(in oklab, var(--color-ink) 60%, transparent) 50%,
-    color-mix(in oklab, var(--color-ink) 50%, transparent) 100%
+    var(--color-ink) 0%,
+    var(--color-ink) 36%,
+    color-mix(in oklab, var(--color-ink) 70%, transparent) 47%,
+    color-mix(in oklab, var(--color-ink) 20%, transparent) 60%,
+    transparent 74%
   );
 }
 

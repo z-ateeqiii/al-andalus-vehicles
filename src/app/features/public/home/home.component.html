@@ -1,13 +1,15 @@
 @if (settings(); as showroom) {
   <!-- ── Hero ─────────────────────────────────────────────────────────── -->
-  <section class="relative flex min-h-[22rem] flex-col overflow-hidden md:min-h-dvh">
+  <section class="relative flex min-h-[30.5rem] flex-col overflow-hidden md:min-h-dvh">
     <!-- The picture is the background of the hero, on every width.
          Its height is sized in rem, never from svh/vh/dvh — Safari's URL bar
          changes those mid-scroll, and an earlier version that sized the band
          from 74svh ended up shorter than the photo and cut the truck in half.
-         22rem also keeps the section wider than 1.04:1 at phone widths, which
-         is the ratio below which a west-gravity crop starts clipping the
-         vehicle. -->
+         The mobile variant is cropped toward the vehicle and then padded to
+         4:5 from the north, so the truck sits whole across the top and the
+         text has dark ground below it — storyboard panel 05. 30.5rem is that
+         padded frame's height at phone widths, so the picture lands exactly
+         where the layout expects it. -->
     <div class="absolute inset-0">
       @if (showroom.heroImageUrl) {
         <app-cloud-image
@@ -29,9 +31,11 @@
     </div>
 
     <div
-      class="relative z-10 mx-auto flex w-full max-w-7xl flex-1 items-center px-4 pt-16 pb-3 md:px-6 md:pt-24 md:pb-8"
+      class="relative z-10 mx-auto flex w-full max-w-7xl flex-1 items-end px-4 pt-16 pb-4 md:items-center md:px-6 md:pt-24 md:pb-8"
     >
-      <div class="flex w-full max-w-2xl flex-col items-start gap-3 text-start md:gap-4">
+      <div
+        class="flex w-full max-w-2xl flex-col items-center gap-3 text-center md:items-start md:gap-4 md:text-start"
+      >
         <h1 class="flex flex-col gap-1">
           <span class="text-4xl leading-tight font-extrabold text-cream sm:text-6xl lg:text-7xl">
             {{ showroom.heroHeading }}
@@ -52,15 +56,20 @@
           </p>
         }
 
-        <div class="mt-1 flex w-full items-center gap-3 sm:mt-2 sm:flex-wrap">
-          <a class="btn-primary flex-1 px-4 sm:flex-none sm:px-6" routerLink="/vehicles">
+        <div class="mt-1 flex w-full flex-col items-center gap-3 sm:mt-2 sm:flex-row sm:flex-wrap">
+          <a
+            class="btn-primary w-full max-w-[17rem] sm:w-auto sm:max-w-none"
+            routerLink="/vehicles"
+          >
             تصفح العربيات
             <app-icon name="arrow-end" [size]="18" />
           </a>
 
+          <!-- Hidden on mobile: the storyboard shows a single call to action
+               there, and the fixed tab bar already carries تواصل معانا. -->
           <button
             type="button"
-            class="btn-secondary flex-1 px-4 sm:flex-none sm:px-6"
+            class="btn-secondary hidden sm:inline-flex"
             (click)="contactOnWhatsApp()"
           >
             <app-icon name="whatsapp" [size]="18" />
