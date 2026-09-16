@@ -3,6 +3,7 @@ import { adminGuard } from '../../core/guards/admin.guard';
 import { AdminLayoutComponent } from '../../layouts/admin-layout/admin-layout.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { LoginComponent } from './login/login.component';
+import { VehicleFormComponent } from './vehicle-form/vehicle-form.component';
 import { AdminVehiclesComponent } from './vehicles/vehicles.component';
 import { PlaceholderPageComponent } from '../../shared/components/placeholder-page/placeholder-page.component';
 
@@ -32,12 +33,12 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'vehicles', component: AdminVehiclesComponent, data: { title: 'العربيات' } },
       {
         path: 'vehicles/new',
-        component: PlaceholderPageComponent,
+        component: VehicleFormComponent,
         data: { title: 'ضيف عربية جديدة' },
       },
       {
         path: 'vehicles/edit/:id',
-        component: PlaceholderPageComponent,
+        component: VehicleFormComponent,
         data: { title: 'عدّل بيانات العربية' },
       },
       { path: 'settings', component: PlaceholderPageComponent, data: { title: 'الإعدادات' } },

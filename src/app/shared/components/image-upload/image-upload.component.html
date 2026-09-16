@@ -1,1 +1,84 @@
-<p>image-upload works!</p>
+<div class="flex flex-col gap-4">
+  <label
+    class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed px-6 py-10 text-center transition-colors"
+    [class]="dragging() ? 'border-gold bg-gold/5' : 'border-elevated/60 hover:border-gold/60'"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave()"
+    (drop)="onDrop($event)"
+  >
+    <app-icon name="image" [size]="28" class="text-gold" />
+
+    <span class="text-sm font-bold text-cream">اسحب الصور هنا أو دوس عشان تختار</span>
+    <span class="text-xs text-muted">JPG أو PNG أو WEBP — أقصى حجم 8 ميجا للصورة</span>
+
+    <input
+      type="file"
+      class="sr-only"
+      accept="image/jpeg,image/png,image/webp"
+      multiple
+      (change)="onPicked($event)"
+    />
+  </label>
+
+  @if (items().length > 0) {
+    <p class="text-xs text-muted">دوس على أي صورة عشان تخليها صورة الغلاف.</p>
+
+    <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      @for (item of items(); track item.key) {
+        <li>
+          <div
+            class="relative aspect-[4/3] overflow-hidden rounded-card border-2 transition-colors"
+            [class]="isCover(item) ? 'border-gold' : 'border-elevated/60'"
+          >
+            @if (thumbOf(item)) {
+              <img [src]="thumbOf(item)" alt="" class="h-full w-full object-cover" />
+            }
+
+            @if (item.uploading) {
+              <div
+                class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/75"
+              >
+                <span class="font-latin text-sm font-bold text-cream">{{ item.progress }}%</span>
+                <div class="h-1 w-3/4 overflow-hidden rounded-full bg-elevated">
+                  <span class="block h-full bg-gold" [style.width.%]="item.progress"></span>
+                </div>
+              </div>
+            }
+
+            @if (item.failed) {
+              <div class="absolute inset-0 flex items-center justify-center bg-ink/80 text-danger">
+                <app-icon name="alert-circle" [size]="22" />
+              </div>
+            }
+
+            @if (isCover(item)) {
+              <span
+                class="absolute top-2 start-2 rounded-full bg-gold px-2 py-0.5 text-[0.65rem] font-bold text-ink"
+              >
+                الغلاف
+              </span>
+            }
+
+            <button
+              type="button"
+              class="absolute top-2 end-2 flex size-8 items-center justify-center rounded-full bg-ink/80 text-cream transition hover:text-danger"
+              (click)="remove(item)"
+              [attr.aria-label]="'شيل الصورة دي'"
+            >
+              <app-icon name="close" [size]="15" />
+            </button>
+
+            @if (!item.uploading && !item.failed && !isCover(item)) {
+              <button
+                type="button"
+                class="absolute inset-0 focus-visible:outline-offset-[-4px]"
+                (click)="promote(item)"
+                aria-label="خلي الصورة دي الغلاف"
+              ></button>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</div>

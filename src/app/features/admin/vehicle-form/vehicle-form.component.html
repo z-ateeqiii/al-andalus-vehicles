@@ -1,1 +1,274 @@
-<p>vehicle-form works!</p>
+@if (loadFailed()) {
+  <app-error-state
+    title="مقدرناش نجيب بيانات العربية"
+    message="يمكن تكون اتمسحت، أو النت فصل. جرّب تاني أو ارجع لقائمة العربيات."
+    (retry)="retryLoad()"
+  />
+} @else if (loading()) {
+  <div class="flex flex-col gap-4" aria-busy="true">
+    <app-skeleton shape="block" width="100%" height="14rem" />
+    <app-skeleton shape="block" width="100%" height="18rem" />
+  </div>
+} @else {
+  <form class="flex flex-col gap-6 pb-28" [formGroup]="form" (ngSubmit)="submit()">
+    <!-- ── 1. البيانات الأساسية ─────────────────────────────────────── -->
+    <section class="surface-panel flex flex-col gap-5 p-4 md:p-6">
+      <h2 class="text-base font-bold text-cream">البيانات الأساسية</h2>
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="category">نوع العربية</label>
+          <select id="category" class="field-input" formControlName="category">
+            <option value="pickup">نص نقل</option>
+            <option value="passenger">ملاكي</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="status">الحالة</label>
+          <select id="status" class="field-input" formControlName="status">
+            <option value="available">متاحة</option>
+            <option value="reserved">محجوزة</option>
+            <option value="sold">مباعة</option>
+            <option value="hidden">مخفية</option>
+          </select>
+          <p class="text-xs text-muted">المخفية والمباعة مش بتظهر للزباين في الموقع.</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="brand">الماركة</label>
+          <input id="brand" class="field-input" formControlName="brand" placeholder="شيفروليه" />
+          @if (errorFor('brand')) {
+            <p class="text-xs text-danger">{{ errorFor('brand') }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="model">الموديل</label>
+          <input id="model" class="field-input" formControlName="model" placeholder="ربع نقل" />
+          @if (errorFor('model')) {
+            <p class="text-xs text-danger">{{ errorFor('model') }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="year">سنة الصنع</label>
+          <input
+            id="year"
+            type="number"
+            class="field-input font-latin"
+            formControlName="year"
+            [min]="minYear"
+            [max]="maxYear"
+            inputmode="numeric"
+          />
+          @if (errorFor('year')) {
+            <p class="text-xs text-danger">{{ errorFor('year') }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="price">السعر بالجنيه</label>
+          <input
+            id="price"
+            type="number"
+            class="field-input font-latin"
+            formControlName="price"
+            inputmode="numeric"
+            min="1"
+          />
+
+          <label class="mt-1 flex min-h-11 cursor-pointer items-center gap-2 text-sm text-cream">
+            <input type="checkbox" class="size-4 accent-gold" formControlName="priceOnRequest" />
+            السعر عند الاتصال
+          </label>
+
+          @if (!priceDisabled() && errorFor('price')) {
+            <p class="text-xs text-danger">{{ errorFor('price') }}</p>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 2. الصور ─────────────────────────────────────────────────── -->
+    <section class="surface-panel flex flex-col gap-4 p-4 md:p-6">
+      <div>
+        <h2 class="text-base font-bold text-cream">الصور</h2>
+        <p class="mt-1 text-xs text-muted">لازم صورة غلاف واحدة على الأقل.</p>
+      </div>
+
+      <app-image-upload [(images)]="images" [(cover)]="cover" />
+
+      @if (coverMissing()) {
+        <p class="text-xs text-danger">لازم تضيف صورة غلاف للعربية</p>
+      }
+    </section>
+
+    <!-- ── 3. تفاصيل إضافية ─────────────────────────────────────────── -->
+    <section class="surface-panel flex flex-col p-4 md:p-6">
+      <button
+        type="button"
+        class="flex min-h-11 items-center justify-between gap-3 text-start"
+        (click)="extrasOpen.set(!extrasOpen())"
+        [attr.aria-expanded]="extrasOpen()"
+      >
+        <span>
+          <span class="block text-base font-bold text-cream">تفاصيل إضافية</span>
+          <span class="block text-xs text-muted">كلها اختيارية — سيبها فاضية لو مش متأكد.</span>
+        </span>
+        <app-icon
+          [name]="extrasOpen() ? 'chevron-up' : 'chevron-down'"
+          [size]="20"
+          class="text-muted"
+        />
+      </button>
+
+      @if (extrasOpen()) {
+        <div class="mt-5 grid gap-5 sm:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm text-cream" for="color">اللون</label>
+            <div class="flex items-center gap-2">
+              <input id="color" class="field-input" formControlName="color" placeholder="أحمر" />
+              <input
+                type="color"
+                class="h-11 w-14 shrink-0 cursor-pointer rounded-control border border-elevated/60 bg-elevated"
+                formControlName="colorHex"
+                aria-label="لون النقطة اللي بتظهر في الكارت"
+              />
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm text-cream" for="mileage">الكيلومترات</label>
+            <input
+              id="mileage"
+              type="number"
+              class="field-input font-latin"
+              formControlName="mileage"
+              inputmode="numeric"
+              min="0"
+            />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm text-cream" for="engine">الموتور</label>
+            <input id="engine" class="field-input" formControlName="engine" placeholder="2.5L" />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm text-cream" for="power">القوة</label>
+            <input id="power" class="field-input" formControlName="power" placeholder="150 حصان" />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm text-cream" for="transmission">الفتيس</label>
+            <input
+              id="transmission"
+              class="field-input"
+              formControlName="transmission"
+              placeholder="مانيوال"
+            />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm text-cream" for="fuelType">نوع الوقود</label>
+            <input
+              id="fuelType"
+              class="field-input"
+              formControlName="fuelType"
+              placeholder="بنزين"
+            />
+          </div>
+
+          <!-- Pickup-only. A ملاكي never carries these. -->
+          @if (isPickup()) {
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm text-cream" for="payload">الحمولة</label>
+              <input
+                id="payload"
+                class="field-input"
+                formControlName="payload"
+                placeholder="800 كجم"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm text-cream" for="bedType">نوع الصندوق</label>
+              <input
+                id="bedType"
+                class="field-input"
+                formControlName="bedType"
+                placeholder="صندوق مفتوح"
+              />
+            </div>
+          }
+
+          <div class="flex flex-col gap-1.5 sm:col-span-2">
+            <label class="text-sm text-cream" for="description">الوصف</label>
+            <textarea
+              id="description"
+              class="field-input min-h-28"
+              formControlName="description"
+              rows="4"
+              placeholder="اكتب أي حاجة مهمة عن العربية…"
+            ></textarea>
+          </div>
+
+          <div class="flex flex-col gap-1.5 sm:col-span-2">
+            <label class="text-sm text-cream" for="feature-input">المميزات</label>
+
+            <div class="flex items-center gap-2">
+              <input
+                id="feature-input"
+                class="field-input"
+                [value]="featureDraft()"
+                (input)="featureDraft.set($any($event.target).value)"
+                (keydown)="onFeatureKeydown($event)"
+                placeholder="اكتب الميزة ودوس Enter"
+              />
+              <button type="button" class="btn-secondary shrink-0" (click)="addFeature()">
+                ضيف
+              </button>
+            </div>
+
+            @if (features().length > 0) {
+              <ul class="mt-2 flex flex-wrap gap-2">
+                @for (feature of features(); track feature) {
+                  <li>
+                    <button
+                      type="button"
+                      class="flex min-h-9 items-center gap-1.5 rounded-full border border-elevated/60 px-3 text-xs text-cream transition hover:border-danger/60 hover:text-danger"
+                      (click)="removeFeature(feature)"
+                      [attr.aria-label]="'شيل ' + feature"
+                    >
+                      {{ feature }}
+                      <app-icon name="close" [size]="13" />
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        </div>
+      }
+    </section>
+
+    <!-- Actions stay reachable however long the form gets. -->
+    <div
+      class="fixed inset-x-0 bottom-0 z-40 border-t border-elevated/40 bg-ink/95 p-3 backdrop-blur md:p-4"
+    >
+      <div class="mx-auto flex max-w-5xl gap-3">
+        <a class="btn-secondary flex-1 sm:flex-none" routerLink="/admin/vehicles">إلغاء</a>
+
+        <button type="submit" class="btn-primary flex-1" [disabled]="submitting()">
+          @if (submitting()) {
+            <span class="spinner" aria-hidden="true"></span>
+            بنحفظ…
+          } @else {
+            {{ isEdit() ? 'احفظ التعديلات' : 'ضيف العربية' }}
+          }
+        </button>
+      </div>
+    </div>
+  </form>
+}
