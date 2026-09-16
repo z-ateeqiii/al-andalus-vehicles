@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+import type { Timestamp } from 'firebase/firestore';
 
 /** The single document at `settings/showroom`. */
 export interface ShowroomSettings {

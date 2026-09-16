@@ -1,23 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import {
-  DocumentData,
-  DocumentSnapshot,
-  QueryDocumentSnapshot,
-  Timestamp,
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
-import { FIRESTORE } from '../config/firebase.config';
-import { TransferCacheService } from './transfer-cache.service';
+import type { DocumentData, DocumentSnapshot, QueryDocumentSnapshot } from 'firebase/firestore';
+import { FirestoreApi, loadFirestore } from '../config/firebase.config';
 import {
   PUBLIC_VEHICLE_STATUSES,
   Vehicle,
@@ -26,6 +9,7 @@ import {
   VehicleStatus,
   isPubliclyVisible,
 } from '../models/vehicle.model';
+import { TransferCacheService } from './transfer-cache.service';
 
 const COLLECTION = 'vehicles';
 
@@ -36,7 +20,10 @@ function stripUndefined<T extends object>(value: T): Partial<T> {
   ) as Partial<T>;
 }
 
-function toVehicle(snapshot: DocumentSnapshot | QueryDocumentSnapshot): Vehicle {
+function toVehicle(
+  snapshot: DocumentSnapshot | QueryDocumentSnapshot,
+  { fs }: FirestoreApi,
+): Vehicle {
   const data = snapshot.data() as DocumentData;
 
   return {
@@ -44,8 +31,8 @@ function toVehicle(snapshot: DocumentSnapshot | QueryDocumentSnapshot): Vehicle 
     id: snapshot.id,
     // A half-written document must not take a page down.
     imageUrls: Array.isArray(data['imageUrls']) ? (data['imageUrls'] as string[]) : [],
-    createdAt: data['createdAt'] instanceof Timestamp ? data['createdAt'] : Timestamp.now(),
-    updatedAt: data['updatedAt'] instanceof Timestamp ? data['updatedAt'] : Timestamp.now(),
+    createdAt: data['createdAt'] instanceof fs.Timestamp ? data['createdAt'] : fs.Timestamp.now(),
+    updatedAt: data['updatedAt'] instanceof fs.Timestamp ? data['updatedAt'] : fs.Timestamp.now(),
   };
 }
 
@@ -61,84 +48,107 @@ function toVehicle(snapshot: DocumentSnapshot | QueryDocumentSnapshot): Vehicle 
  * one query and the inventory filters (category, brand, price, search) run in
  * memory. That keeps Firestore to a single composite index instead of one per
  * filter combination.
+ *
+ * The Firestore SDK is loaded with `import()` inside each method. On the
+ * client's first load none of these bodies run — the transfer cache answers
+ * before `read()` is reached — so the SDK never enters the critical path.
  */
 @Injectable({ providedIn: 'root' })
 export class VehicleService {
-  private readonly firestore = inject(FIRESTORE);
   private readonly transferCache = inject(TransferCacheService);
 
   /** Everything a visitor is allowed to see, newest first. */
   listPublic(): Promise<Vehicle[]> {
     return this.transferCache.through('vehicles:public', async () => {
-      const snapshot = await getDocs(
-        query(
-          collection(this.firestore, COLLECTION),
-          where('status', 'in', [...PUBLIC_VEHICLE_STATUSES]),
-          orderBy('createdAt', 'desc'),
+      const api = await loadFirestore();
+      const { db, fs } = api;
+
+      const snapshot = await fs.getDocs(
+        fs.query(
+          fs.collection(db, COLLECTION),
+          fs.where('status', 'in', [...PUBLIC_VEHICLE_STATUSES]),
+          fs.orderBy('createdAt', 'desc'),
         ),
       );
-      return snapshot.docs.map(toVehicle);
+
+      return snapshot.docs.map((doc) => toVehicle(doc, api));
     });
   }
 
   /** `null` for a missing vehicle and for one that is sold or hidden. */
   getPublic(id: string): Promise<Vehicle | null> {
     return this.transferCache.through(`vehicle:${id}`, async () => {
-      const snapshot = await getDoc(doc(this.firestore, COLLECTION, id));
+      const api = await loadFirestore();
+      const { db, fs } = api;
+
+      const snapshot = await fs.getDoc(fs.doc(db, COLLECTION, id));
       if (!snapshot.exists()) {
         return null;
       }
 
-      const vehicle = toVehicle(snapshot);
+      const vehicle = toVehicle(snapshot, api);
       return isPubliclyVisible(vehicle) ? vehicle : null;
     });
   }
 
   /** Admin only — includes sold and hidden vehicles. */
   async listAll(): Promise<Vehicle[]> {
-    const snapshot = await getDocs(
-      query(collection(this.firestore, COLLECTION), orderBy('createdAt', 'desc')),
+    const api = await loadFirestore();
+    const { db, fs } = api;
+
+    const snapshot = await fs.getDocs(
+      fs.query(fs.collection(db, COLLECTION), fs.orderBy('createdAt', 'desc')),
     );
-    return snapshot.docs.map(toVehicle);
+
+    return snapshot.docs.map((doc) => toVehicle(doc, api));
   }
 
   /** Admin only — any status. */
   async get(id: string): Promise<Vehicle | null> {
-    const snapshot = await getDoc(doc(this.firestore, COLLECTION, id));
-    return snapshot.exists() ? toVehicle(snapshot) : null;
+    const api = await loadFirestore();
+    const snapshot = await api.fs.getDoc(api.fs.doc(api.db, COLLECTION, id));
+    return snapshot.exists() ? toVehicle(snapshot, api) : null;
   }
 
   /** Resolves to the new document id. */
   async create(draft: VehicleDraft): Promise<string> {
-    const reference = await addDoc(collection(this.firestore, COLLECTION), {
+    const { db, fs } = await loadFirestore();
+
+    const reference = await fs.addDoc(fs.collection(db, COLLECTION), {
       ...stripUndefined(draft),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      createdAt: fs.serverTimestamp(),
+      updatedAt: fs.serverTimestamp(),
     });
+
     return reference.id;
   }
 
   async update(id: string, patch: Partial<VehicleDraft>): Promise<void> {
-    await updateDoc(doc(this.firestore, COLLECTION, id), {
+    const { db, fs } = await loadFirestore();
+
+    await fs.updateDoc(fs.doc(db, COLLECTION, id), {
       ...stripUndefined(patch),
-      updatedAt: serverTimestamp(),
+      updatedAt: fs.serverTimestamp(),
     });
   }
 
   /** The status `<select>` on each admin row saves through this. */
   async updateStatus(id: string, status: VehicleStatus): Promise<void> {
-    await updateDoc(doc(this.firestore, COLLECTION, id), {
+    const { db, fs } = await loadFirestore();
+
+    await fs.updateDoc(fs.doc(db, COLLECTION, id), {
       status,
-      updatedAt: serverTimestamp(),
+      updatedAt: fs.serverTimestamp(),
     });
   }
 
   async remove(id: string): Promise<void> {
-    await deleteDoc(doc(this.firestore, COLLECTION, id));
+    const { db, fs } = await loadFirestore();
+    await fs.deleteDoc(fs.doc(db, COLLECTION, id));
   }
 
   // ── Pure helpers. The spec asks for these to be derived from the real
-  //    documents rather than hardcoded. ─────────────────────────────────────
+  //    documents rather than hardcoded. No Firestore involved. ──────────────
 
   /** Up to `limit` featured vehicles, for the home page band. */
   featured(vehicles: readonly Vehicle[], limit = 6): Vehicle[] {

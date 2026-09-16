@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { DocumentData, Timestamp, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import type { DocumentData } from 'firebase/firestore';
 import { environment } from '../../../environments/environment';
-import { FIRESTORE } from '../config/firebase.config';
+import { FirestoreApi, loadFirestore } from '../config/firebase.config';
 import {
   DEFAULT_SHOWROOM_SETTINGS,
   ShowroomSettings,
@@ -18,10 +18,12 @@ const DOCUMENT_ID = 'showroom';
  *
  * The owner changes the hero image and copy from `/admin/settings`, with no
  * code change and no deploy (build spec §8.5).
+ *
+ * The Firestore SDK is loaded with `import()` on first use; on the client's
+ * first load the transfer cache answers before that happens.
  */
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
-  private readonly firestore = inject(FIRESTORE);
   private readonly transferCache = inject(TransferCacheService);
 
   private readonly loaded = signal<ShowroomSettings | null>(null);
@@ -43,10 +45,11 @@ export class SettingsService {
   async load(): Promise<ShowroomSettings> {
     const settings = await this.transferCache.through('settings:showroom', async () => {
       try {
-        const snapshot = await getDoc(doc(this.firestore, COLLECTION, DOCUMENT_ID));
-        return snapshot.exists() ? this.merge(snapshot.data()) : this.merge(null);
+        const api = await loadFirestore();
+        const snapshot = await api.fs.getDoc(api.fs.doc(api.db, COLLECTION, DOCUMENT_ID));
+        return this.merge(snapshot.exists() ? snapshot.data() : null, api);
       } catch {
-        return this.merge(null);
+        return this.merge(null, null);
       }
     });
 
@@ -56,22 +59,34 @@ export class SettingsService {
 
   /** Admin write. Creates the document if the owner is saving for the first time. */
   async save(draft: ShowroomSettingsDraft): Promise<void> {
-    await setDoc(
-      doc(this.firestore, COLLECTION, DOCUMENT_ID),
-      { ...draft, updatedAt: serverTimestamp() },
+    const api = await loadFirestore();
+    const { db, fs } = api;
+
+    await fs.setDoc(
+      fs.doc(db, COLLECTION, DOCUMENT_ID),
+      { ...draft, updatedAt: fs.serverTimestamp() },
       { merge: true },
     );
 
     // Keep the synchronous readers in step with what was just saved.
-    this.loaded.set({ ...this.merge(draft as DocumentData) });
+    this.loaded.set(this.merge(draft as DocumentData, api));
   }
 
   /**
    * Fills any gap in the stored document from the bundled defaults, so a
    * partially-filled settings document can never render a blank hero.
+   *
+   * `api` is null only when Firestore could not be loaded at all, in which
+   * case there is no stored timestamp to preserve either.
    */
-  private merge(data: DocumentData | null): ShowroomSettings {
+  private merge(data: DocumentData | null, api: FirestoreApi | null): ShowroomSettings {
     const stored = (data ?? {}) as Partial<ShowroomSettings>;
+    const Timestamp = api?.fs.Timestamp;
+
+    const updatedAt =
+      Timestamp && stored.updatedAt instanceof Timestamp
+        ? stored.updatedAt
+        : (Timestamp?.now() ?? fallbackTimestamp());
 
     return {
       ...DEFAULT_SHOWROOM_SETTINGS,
@@ -81,7 +96,21 @@ export class SettingsService {
         typeof stored.showPassengerVehicles === 'boolean'
           ? stored.showPassengerVehicles
           : DEFAULT_SHOWROOM_SETTINGS.showPassengerVehicles,
-      updatedAt: stored.updatedAt instanceof Timestamp ? stored.updatedAt : Timestamp.now(),
+      updatedAt,
     };
   }
+}
+
+/**
+ * Stands in for `Timestamp.now()` when the SDK is unavailable — the settings
+ * document is display-only, and nothing reads this field.
+ */
+function fallbackTimestamp(): ShowroomSettings['updatedAt'] {
+  const millis = Date.now();
+  return {
+    seconds: Math.floor(millis / 1000),
+    nanoseconds: (millis % 1000) * 1e6,
+    toDate: () => new Date(millis),
+    toMillis: () => millis,
+  } as ShowroomSettings['updatedAt'];
 }

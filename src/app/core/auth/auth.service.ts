@@ -1,11 +1,6 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
-import {
-  User,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-} from 'firebase/auth';
-import { FIREBASE_AUTH } from '../config/firebase.config';
+import type { User } from 'firebase/auth';
+import { loadAuthIfBrowser } from '../config/firebase.config';
 
 /**
  * Login failures, in Egyptian Arabic.
@@ -41,13 +36,16 @@ function errorCodeOf(error: unknown): string {
  * The single admin account, email/password only. The user is created by hand
  * in the Firebase console — there is no sign-up route.
  *
- * On the server `FIREBASE_AUTH` is null, so nobody is ever signed in during
- * SSR and `whenReady()` resolves immediately.
+ * The Auth SDK is loaded with `import()`, so it stays out of the initial
+ * chunk; on the server it is never loaded at all and `whenReady()` resolves
+ * to null immediately.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly auth = inject(FIREBASE_AUTH);
   private readonly destroyRef = inject(DestroyRef);
+
+  /** Resolved once, in an injection context, so the platform check is valid. */
+  private readonly api = loadAuthIfBrowser();
 
   private readonly currentUser = signal<User | null>(null);
   private readonly resolved = signal(false);
@@ -62,29 +60,30 @@ export class AuthService {
   readonly uid = computed(() => this.currentUser()?.uid ?? null);
 
   constructor() {
-    const auth = this.auth;
+    this.firstState = this.api.then(
+      (api) =>
+        new Promise<User | null>((resolve) => {
+          if (!api) {
+            this.resolved.set(true);
+            resolve(null);
+            return;
+          }
 
-    if (!auth) {
-      this.resolved.set(true);
-      this.firstState = Promise.resolve(null);
-      return;
-    }
+          let settled = false;
 
-    this.firstState = new Promise<User | null>((resolve) => {
-      let settled = false;
+          const unsubscribe = api.fa.onAuthStateChanged(api.auth, (user) => {
+            this.currentUser.set(user);
+            this.resolved.set(true);
 
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        this.currentUser.set(user);
-        this.resolved.set(true);
+            if (!settled) {
+              settled = true;
+              resolve(user);
+            }
+          });
 
-        if (!settled) {
-          settled = true;
-          resolve(user);
-        }
-      });
-
-      this.destroyRef.onDestroy(unsubscribe);
-    });
+          this.destroyRef.onDestroy(unsubscribe);
+        }),
+    );
   }
 
   /**
@@ -97,12 +96,14 @@ export class AuthService {
 
   /** Throws an `Error` whose message is already Egyptian Arabic and safe to show. */
   async signIn(email: string, password: string): Promise<User> {
-    if (!this.auth) {
+    const api = await this.api;
+
+    if (!api) {
       throw new Error('حصلت مشكلة، حاول تاني');
     }
 
     try {
-      const credential = await signInWithEmailAndPassword(this.auth, email.trim(), password);
+      const credential = await api.fa.signInWithEmailAndPassword(api.auth, email.trim(), password);
       return credential.user;
     } catch (error) {
       throw new Error(messageFor(errorCodeOf(error)));
@@ -110,9 +111,9 @@ export class AuthService {
   }
 
   async signOut(): Promise<void> {
-    if (!this.auth) {
-      return;
+    const api = await this.api;
+    if (api) {
+      await api.fa.signOut(api.auth);
     }
-    await firebaseSignOut(this.auth);
   }
 }

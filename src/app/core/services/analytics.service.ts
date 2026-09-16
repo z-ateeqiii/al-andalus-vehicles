@@ -1,7 +1,6 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
-import { doc, getDoc, increment, setDoc } from 'firebase/firestore';
-import { FIRESTORE } from '../config/firebase.config';
+import { loadFirestore } from '../config/firebase.config';
 
 const COLLECTION = 'analytics';
 const TOTAL_DOCUMENT = 'total';
@@ -22,10 +21,14 @@ function dailyDocumentId(date = new Date()): string {
  * Counting is browser-only and deduplicated per session. If it ran during SSR
  * every link-preview crawler — and the owner pasting a link into WhatsApp —
  * would inflate the number.
+ *
+ * This is the one public-side caller that genuinely needs Firestore in the
+ * browser, so it is also the one that decides when that chunk downloads. It
+ * is invoked from `afterNextRender`, which means the `import()` starts after
+ * the first paint rather than competing with it.
  */
 @Injectable({ providedIn: 'root' })
 export class AnalyticsService {
-  private readonly firestore = inject(FIRESTORE);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /**
@@ -43,12 +46,13 @@ export class AnalyticsService {
     // Marked before the await, so two calls in the same tick cannot both pass.
     this.markCounted();
 
-    const views = { views: increment(1) };
-
     try {
+      const { db, fs } = await loadFirestore();
+      const views = { views: fs.increment(1) };
+
       await Promise.all([
-        setDoc(doc(this.firestore, COLLECTION, TOTAL_DOCUMENT), views, { merge: true }),
-        setDoc(doc(this.firestore, COLLECTION, dailyDocumentId()), views, { merge: true }),
+        fs.setDoc(fs.doc(db, COLLECTION, TOTAL_DOCUMENT), views, { merge: true }),
+        fs.setDoc(fs.doc(db, COLLECTION, dailyDocumentId()), views, { merge: true }),
       ]);
     } catch {
       // Counting is best-effort by design.
@@ -58,7 +62,8 @@ export class AnalyticsService {
   /** Admin read — the `زوار الموقع` card. Resolves to 0 when unavailable. */
   async totalViews(): Promise<number> {
     try {
-      const snapshot = await getDoc(doc(this.firestore, COLLECTION, TOTAL_DOCUMENT));
+      const { db, fs } = await loadFirestore();
+      const snapshot = await fs.getDoc(fs.doc(db, COLLECTION, TOTAL_DOCUMENT));
       const views: unknown = snapshot.data()?.['views'];
       return typeof views === 'number' ? views : 0;
     } catch {
