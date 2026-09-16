@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from '../../core/guards/admin.guard';
 import { AdminLayoutComponent } from '../../layouts/admin-layout/admin-layout.component';
+import { LoginComponent } from './login/login.component';
 import { PlaceholderPageComponent } from '../../shared/components/placeholder-page/placeholder-page.component';
 
 /**
@@ -12,7 +13,7 @@ import { PlaceholderPageComponent } from '../../shared/components/placeholder-pa
 export const ADMIN_ROUTES: Routes = [
   {
     path: 'login',
-    component: PlaceholderPageComponent,
+    component: LoginComponent,
     data: { title: 'تسجيل الدخول' },
   },
   {

@@ -229,6 +229,23 @@
     border-color: color-mix(in oklab, var(--color-gold) 40%, transparent);
   }
 
+  /* Inline spinner for submit buttons that are working. */
+  .spinner {
+    display: inline-block;
+    inline-size: 1rem;
+    block-size: 1rem;
+    border-radius: 9999px;
+    border: 2px solid currentColor;
+    border-block-start-color: transparent;
+    animation: spinner-spin 700ms linear infinite;
+  }
+
+  @keyframes spinner-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   /* Prices: gold, Inter digits, aligned columns. */
   .price {
     font-family: var(--font-latin);
