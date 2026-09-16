@@ -5,7 +5,7 @@
   [alt]="alt()"
   [attr.width]="width()"
   [attr.height]="height()"
-  [attr.loading]="priority() ? 'eager' : 'lazy'"
+  [attr.loading]="loading()"
   [attr.fetchpriority]="priority() ? 'high' : null"
   [attr.decoding]="priority() ? 'sync' : 'async'"
   [class]="imgClass()"

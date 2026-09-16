@@ -34,8 +34,18 @@ export class CloudImageComponent {
   /** Width used for the plain `src` fallback. */
   readonly baseWidth = input(800);
 
-  /** The hero only: eager, high priority, decoded synchronously. */
+  /**
+   * The LCP candidate: eager, `fetchpriority="high"`, decoded synchronously.
+   * At most one image per page should carry this — several high-priority
+   * images only compete with each other.
+   */
   readonly priority = input(false);
+
+  /**
+   * Above the fold but not the LCP candidate: eager, so the browser does not
+   * deprioritise it the way it does a lazy image, but at normal priority.
+   */
+  readonly eager = input(false);
 
   readonly imgClass = input('');
 
@@ -44,4 +54,6 @@ export class CloudImageComponent {
   );
 
   protected readonly srcset = computed(() => this.cloudinary.srcset(this.src()) || null);
+
+  protected readonly loading = computed(() => (this.priority() || this.eager() ? 'eager' : 'lazy'));
 }

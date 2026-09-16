@@ -28,6 +28,12 @@ export class VehicleCardComponent {
     '(min-width: 1536px) 20vw, (min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw',
   );
 
+  /** Set on the one card that is the page's LCP candidate. */
+  readonly priority = input(false);
+
+  /** Set on the rest of the first row, so they are not deprioritised. */
+  readonly eager = input(false);
+
   protected readonly title = computed(() =>
     `${this.vehicle().brand} ${this.vehicle().model}`.trim(),
   );

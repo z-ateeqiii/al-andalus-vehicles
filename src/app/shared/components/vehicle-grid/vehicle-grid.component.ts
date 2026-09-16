@@ -24,5 +24,21 @@ export class VehicleGridComponent {
 
   readonly skeletonCount = input(10);
 
+  /**
+   * How many leading cards sit above the fold and should load eagerly. The
+   * very first of them also gets `fetchpriority="high"` as the page's LCP
+   * candidate; the rest are merely eager.
+   *
+   * Leave at 0 for a grid that is below the fold — the home page's featured
+   * band sits under a full-viewport hero, so its cards stay lazy.
+   *
+   * The real first row is breakpoint-dependent (1 card at 375px, 5 at 1536px)
+   * and markup cannot know which applies, so this is a deliberate compromise:
+   * enough cards to cover a desktop row, with only one high-priority hint so
+   * a phone does not fetch four full-width images that compete with each
+   * other.
+   */
+  readonly eagerCount = input(0);
+
   protected readonly placeholders = computed(() => Array.from({ length: this.skeletonCount() }));
 }

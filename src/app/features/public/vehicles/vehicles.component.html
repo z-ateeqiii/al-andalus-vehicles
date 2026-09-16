@@ -81,14 +81,18 @@
           />
         } @else {
           <div class="flex flex-col gap-10">
-            @for (section of sections(); track section.key) {
+            @for (section of sections(); track section.key; let firstSection = $first) {
               <section>
                 <h2 class="mb-4 text-lg font-bold text-cream md:text-xl">{{ section.title }}</h2>
 
                 @if (section.vehicles !== null && section.vehicles.length === 0) {
                   <app-empty-state icon="car" [title]="section.emptyMessage" />
                 } @else {
-                  <app-vehicle-grid [vehicles]="section.vehicles" [skeletonCount]="5" />
+                  <app-vehicle-grid
+                    [vehicles]="section.vehicles"
+                    [skeletonCount]="5"
+                    [eagerCount]="firstSection ? 4 : 0"
+                  />
                 }
               </section>
             }

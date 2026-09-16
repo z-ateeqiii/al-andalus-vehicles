@@ -3,8 +3,12 @@
   [attr.aria-busy]="vehicles() === null ? 'true' : null"
 >
   @if (vehicles(); as list) {
-    @for (vehicle of list; track vehicle.id) {
-      <app-vehicle-card [vehicle]="vehicle" />
+    @for (vehicle of list; track vehicle.id; let i = $index) {
+      <app-vehicle-card
+        [vehicle]="vehicle"
+        [priority]="eagerCount() > 0 && i === 0"
+        [eager]="i > 0 && i < eagerCount()"
+      />
     }
   } @else {
     @for (placeholder of placeholders(); track $index) {
