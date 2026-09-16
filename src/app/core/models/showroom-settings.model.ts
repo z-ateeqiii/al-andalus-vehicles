@@ -7,6 +7,9 @@ export interface ShowroomSettings {
   phoneNumber?: string;
   address?: string;
   workingHours?: string;
+  /** Empty or absent hides the icon from the footer entirely. */
+  facebookUrl?: string;
+  tiktokUrl?: string;
   heroImageUrl: string;
   heroHeading: string;
   heroSubheading: string;

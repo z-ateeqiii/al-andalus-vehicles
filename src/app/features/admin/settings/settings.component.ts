@@ -1,11 +1,36 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { ShowroomSettingsDraft } from '../../../core/models/showroom-settings.model';
 import { SettingsService } from '../../../core/services/settings.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { CloudImageComponent } from '../../../shared/components/cloud-image/cloud-image.component';
 import { ImageUploadComponent } from '../../../shared/components/image-upload/image-upload.component';
 import { SkeletonComponent } from '../../../shared/components/skeleton/skeleton.component';
+
+/**
+ * Empty is valid — a missing social account is the normal case, not an
+ * error. Anything else has to be a real http(s) address, because it goes
+ * straight into an `href`.
+ */
+function optionalUrl(control: AbstractControl): ValidationErrors | null {
+  const value = String(control.value ?? '').trim();
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? null : { url: true };
+  } catch {
+    return { url: true };
+  }
+}
 
 /**
  * Everything the owner can change about the showroom without a deploy.
@@ -41,6 +66,8 @@ export class SettingsComponent {
     phoneNumber: [''],
     address: [''],
     workingHours: [''],
+    facebookUrl: ['', [optionalUrl]],
+    tiktokUrl: ['', [optionalUrl]],
     showPassengerVehicles: [true],
   });
 
@@ -55,6 +82,8 @@ export class SettingsComponent {
         phoneNumber: settings.phoneNumber ?? '',
         address: settings.address ?? '',
         workingHours: settings.workingHours ?? '',
+        facebookUrl: settings.facebookUrl ?? '',
+        tiktokUrl: settings.tiktokUrl ?? '',
         showPassengerVehicles: settings.showPassengerVehicles,
       });
 
@@ -70,6 +99,11 @@ export class SettingsComponent {
   protected requiredError(field: 'showroomName' | 'heroHeading' | 'whatsappNumber'): string {
     const control = this.form.controls[field];
     return control.touched && control.hasError('required') ? 'الحقل ده مطلوب' : '';
+  }
+
+  protected urlError(field: 'facebookUrl' | 'tiktokUrl'): string {
+    const control = this.form.controls[field];
+    return control.touched && control.hasError('url') ? 'اكتب لينك صحيح يبدأ بـ https://' : '';
   }
 
   protected async save(): Promise<void> {
@@ -88,6 +122,9 @@ export class SettingsComponent {
         ...value,
         // Digits only: the WhatsApp link builds a wa.me URL from this.
         whatsappNumber: value.whatsappNumber.replace(/\D/g, ''),
+        // Trimmed, so a field of spaces counts as empty and hides its icon.
+        facebookUrl: value.facebookUrl.trim(),
+        tiktokUrl: value.tiktokUrl.trim(),
         heroImageUrl: this.heroCover(),
       };
 

@@ -119,6 +119,42 @@
           <label class="text-sm text-cream" for="address">العنوان</label>
           <input id="address" class="field-input" formControlName="address" />
         </div>
+
+        <div class="flex flex-col gap-1.5 sm:col-span-2">
+          <p class="text-xs text-muted">
+            لو سيبت أي لينك من دول فاضي، الأيقونة بتاعته مش هتظهر في الموقع خالص.
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="facebookUrl">فيسبوك</label>
+          <input
+            id="facebookUrl"
+            class="field-input font-latin"
+            formControlName="facebookUrl"
+            dir="ltr"
+            inputmode="url"
+            placeholder="https://www.facebook.com/..."
+          />
+          @if (urlError('facebookUrl')) {
+            <p class="text-xs text-danger">{{ urlError('facebookUrl') }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="tiktokUrl">تيك توك</label>
+          <input
+            id="tiktokUrl"
+            class="field-input font-latin"
+            formControlName="tiktokUrl"
+            dir="ltr"
+            inputmode="url"
+            placeholder="https://www.tiktok.com/@..."
+          />
+          @if (urlError('tiktokUrl')) {
+            <p class="text-xs text-danger">{{ urlError('tiktokUrl') }}</p>
+          }
+        </div>
       </div>
     </section>
 

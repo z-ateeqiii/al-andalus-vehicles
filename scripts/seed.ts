@@ -288,6 +288,9 @@ const SETTINGS: ShowroomSettingsDraft = {
   phoneNumber: '+20 127 636 4094',
   address: 'العنوان الحقيقي للمعرض — غيّره من /admin/settings',
   workingHours: 'من السبت للخميس، 10 صباحًا لـ 8 مساءً',
+  facebookUrl: 'https://www.facebook.com/share/187Pj7maQo/?mibextid=wwXIfr',
+  // Not provided yet. Empty hides the icon rather than linking nowhere.
+  tiktokUrl: '',
   heroImageUrl: placeholder('صورة الهيدر'),
   heroHeading: 'الأندلس',
   heroSubheading: 'لبيع وشراء السيارات',

@@ -6,6 +6,24 @@
         معرض الأندلس لبيع وشراء السيارات — ربع نقل وميكروباص وملاكي، بأسعار مناسبة وإجراءات سهلة
         وسريعة.
       </p>
+
+      @if (socials().length > 0) {
+        <ul class="mt-1 flex items-center gap-2">
+          @for (social of socials(); track social.icon) {
+            <li>
+              <a
+                class="flex size-11 items-center justify-center rounded-control border border-elevated/60 text-muted transition-colors hover:border-gold/60 hover:text-gold"
+                [href]="social.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                [attr.aria-label]="'تابعنا على ' + social.label"
+              >
+                <app-icon [name]="social.icon" [size]="20" />
+              </a>
+            </li>
+          }
+        </ul>
+      }
     </div>
 
     <nav aria-labelledby="footer-links">
@@ -24,24 +42,34 @@
     <div>
       <h2 class="mb-4 text-sm font-bold text-cream">تواصل معانا</h2>
       <ul class="flex flex-col gap-3 text-sm text-muted">
-        <li class="flex items-center gap-2">
-          <app-icon name="phone" [size]="16" class="text-gold" />
-          <span dir="ltr" class="font-latin">+20 100 000 0000</span>
-        </li>
-        <li class="flex items-center gap-2">
-          <app-icon name="map-pin" [size]="16" class="text-gold" />
-          <span>العنوان هيتحدد من لوحة التحكم</span>
-        </li>
-        <li class="flex items-center gap-2">
-          <app-icon name="clock" [size]="16" class="text-gold" />
-          <span>مواعيد العمل هتتحدد من لوحة التحكم</span>
-        </li>
+        @if (settings()?.phoneNumber; as phone) {
+          <li class="flex items-center gap-2">
+            <app-icon name="phone" [size]="16" class="text-gold" />
+            <a dir="ltr" class="font-latin transition hover:text-gold" [href]="'tel:' + phone">
+              {{ phone }}
+            </a>
+          </li>
+        }
+
+        @if (settings()?.address; as address) {
+          <li class="flex items-center gap-2">
+            <app-icon name="map-pin" [size]="16" class="text-gold" />
+            <span>{{ address }}</span>
+          </li>
+        }
+
+        @if (settings()?.workingHours; as hours) {
+          <li class="flex items-center gap-2">
+            <app-icon name="clock" [size]="16" class="text-gold" />
+            <span>{{ hours }}</span>
+          </li>
+        }
       </ul>
     </div>
   </div>
 
   <div class="border-t border-elevated/40 px-4 py-5 text-center text-xs text-muted md:px-6">
     <span class="font-latin">© {{ year }}</span>
-    معرض الأندلس — كل الحقوق محفوظة
+    {{ settings()?.showroomName ?? 'معرض الأندلس' }} — كل الحقوق محفوظة
   </div>
 </footer>
