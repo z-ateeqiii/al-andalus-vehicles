@@ -1,1 +1,38 @@
-<p>category-split works!</p>
+<div class="surface-panel flex flex-col gap-4 p-4 md:p-5">
+  <h2 class="text-sm font-bold text-cream">توزيع العربيات</h2>
+
+  @if (total() === 0) {
+    <p class="text-sm text-muted">لسه مفيش عربيات متسجلة.</p>
+  } @else {
+    <div
+      class="flex h-4 w-full overflow-hidden rounded-full bg-elevated/60"
+      role="img"
+      [attr.aria-label]="
+        'نص نقل ' + pickupPercent() + ' بالمية، ملاكي ' + passengerPercent() + ' بالمية'
+      "
+    >
+      @if (pickupCount() > 0) {
+        <span class="h-full bg-gold" [style.width.%]="pickupPercent()"></span>
+      }
+      @if (passengerCount() > 0) {
+        <span class="h-full bg-cream/45" [style.width.%]="passengerPercent()"></span>
+      }
+    </div>
+
+    <ul class="flex flex-wrap items-center gap-x-6 gap-y-2">
+      <li class="flex items-center gap-2 text-sm">
+        <span class="size-2.5 shrink-0 rounded-full bg-gold"></span>
+        <span class="text-cream">نص نقل</span>
+        <span class="font-latin text-muted">{{ pickupCount() }} ({{ pickupPercent() }}%)</span>
+      </li>
+
+      <li class="flex items-center gap-2 text-sm">
+        <span class="size-2.5 shrink-0 rounded-full bg-cream/45"></span>
+        <span class="text-cream">ملاكي</span>
+        <span class="font-latin text-muted">
+          {{ passengerCount() }} ({{ passengerPercent() }}%)
+        </span>
+      </li>
+    </ul>
+  }
+</div>

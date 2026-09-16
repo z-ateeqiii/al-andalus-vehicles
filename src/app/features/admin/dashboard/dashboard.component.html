@@ -1,1 +1,79 @@
-<p>dashboard works!</p>
+@if (failed()) {
+  <app-error-state (retry)="load()" />
+} @else if (vehicles() === null) {
+  <app-dashboard-skeleton />
+} @else {
+  <div class="flex flex-col gap-6">
+    <!-- The primary action, first and unmissable. -->
+    <a class="btn-primary w-full sm:w-auto sm:self-start" routerLink="/admin/vehicles/new">
+      <app-icon name="plus" [size]="18" />
+      ضيف عربية جديدة
+    </a>
+
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <app-stat-card label="إجمالي العربيات" icon="car" [value]="totalCount()" />
+      <app-stat-card label="العربيات المتاحة" icon="check-circle" [value]="availableCount()" />
+      <app-stat-card label="المباعة والمحجوزة" icon="tag" [value]="soldOrReservedCount()" />
+      <app-stat-card label="زوار الموقع" icon="eye" [value]="visitors()" hint="مشاهدات الصفحة" />
+    </div>
+
+    <app-category-split [pickupCount]="pickupCount()" [passengerCount]="passengerCount()" />
+
+    <section class="surface-panel p-4 md:p-5">
+      <div class="mb-4 flex items-center justify-between gap-4">
+        <h2 class="text-sm font-bold text-cream">أحدث العربيات المضافة</h2>
+        <a class="text-sm text-gold transition hover:underline" routerLink="/admin/vehicles">
+          عرض الكل
+        </a>
+      </div>
+
+      @if (recent().length === 0) {
+        <app-empty-state
+          icon="car"
+          title="لسه مفيش عربيات"
+          message="ابدأ بإضافة أول عربية في المعرض."
+          actionLabel="ضيف عربية جديدة"
+          actionLink="/admin/vehicles/new"
+        />
+      } @else {
+        <ul class="flex flex-col divide-y divide-elevated/40">
+          @for (vehicle of recent(); track vehicle.id) {
+            <li>
+              <a
+                class="flex items-center gap-3 py-3 transition-colors hover:bg-elevated/30"
+                [routerLink]="['/admin/vehicles/edit', vehicle.id]"
+              >
+                <div class="size-14 shrink-0 overflow-hidden rounded-control bg-elevated/40">
+                  @if (vehicle.coverImageUrl) {
+                    <app-cloud-image
+                      [src]="vehicle.coverImageUrl"
+                      [alt]="titleOf(vehicle)"
+                      sizes="56px"
+                      [width]="112"
+                      [height]="112"
+                      [baseWidth]="400"
+                      imgClass="h-full w-full object-cover"
+                      class="h-full w-full"
+                    />
+                  }
+                </div>
+
+                <div class="flex min-w-0 flex-1 flex-col">
+                  <span class="truncate text-sm font-bold text-cream">{{ titleOf(vehicle) }}</span>
+                  <span class="price text-sm">{{ vehicle.price | egpPrice }}</span>
+                </div>
+
+                <span
+                  class="shrink-0 rounded-full border px-2.5 py-1 text-[0.7rem] font-bold"
+                  [class]="statusClass(vehicle)"
+                >
+                  {{ statusLabels[vehicle.status] }}
+                </span>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  </div>
+}

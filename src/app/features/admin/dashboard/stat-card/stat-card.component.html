@@ -1,1 +1,17 @@
-<p>stat-card works!</p>
+<div class="surface-panel flex items-center gap-4 p-4 md:p-5" [attr.title]="hint() || null">
+  <span class="flex size-12 shrink-0 items-center justify-center rounded-card bg-gold/12 text-gold">
+    <app-icon [name]="icon()" [size]="24" />
+  </span>
+
+  <div class="flex min-w-0 flex-col">
+    @if (value() === null) {
+      <span class="font-latin text-2xl font-bold text-muted md:text-3xl">—</span>
+    } @else {
+      <span class="font-latin text-2xl font-bold text-cream md:text-3xl">{{ value() }}</span>
+    }
+    <span class="truncate text-xs text-muted md:text-sm">{{ label() }}</span>
+    @if (hint()) {
+      <span class="sr-only">{{ hint() }}</span>
+    }
+  </div>
+</div>

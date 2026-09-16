@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from '../../core/guards/admin.guard';
 import { AdminLayoutComponent } from '../../layouts/admin-layout/admin-layout.component';
+import { DashboardComponent } from './dashboard/dashboard.component';
 import { LoginComponent } from './login/login.component';
 import { PlaceholderPageComponent } from '../../shared/components/placeholder-page/placeholder-page.component';
 
@@ -24,7 +25,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
         path: 'dashboard',
-        component: PlaceholderPageComponent,
+        component: DashboardComponent,
         data: { title: 'لوحة التحكم' },
       },
       { path: 'vehicles', component: PlaceholderPageComponent, data: { title: 'العربيات' } },
