@@ -16,6 +16,10 @@ import { IconName } from '../../../shared/components/icon/icon-paths';
 import { VehicleGridComponent } from '../../../shared/components/vehicle-grid/vehicle-grid.component';
 import { HomeSkeletonComponent } from './home-skeleton/home-skeleton.component';
 
+/** Keeps the preload hints and the <picture> source in step. */
+export const HERO_MOBILE_TRANSFORM = 'c_pad,ar_9:16,g_south,b_rgb:0F0D0A';
+export const HERO_MOBILE_MEDIA = '(max-width: 767px)';
+
 interface TrustItem {
   readonly icon: IconName;
   readonly label: string;
@@ -54,6 +58,9 @@ export class HomeComponent {
     const list = this.vehicles();
     return list === null ? null : this.vehicleService.featured(list, 6);
   });
+
+  protected readonly heroMobileTransform = HERO_MOBILE_TRANSFORM;
+  protected readonly heroMobileMedia = HERO_MOBILE_MEDIA;
 
   protected readonly trustItems: readonly TrustItem[] = [
     { icon: 'shield', label: 'جميع السيارات مضمونة' },
@@ -95,7 +102,12 @@ export class HomeComponent {
   /**
    * The hero is the LCP element, so the browser should start fetching it from
    * the HTML rather than after the component renders. The URL only exists at
-   * runtime — it comes from Firestore — so the tag is added here.
+   * runtime — it comes from Firestore — so the tags are added here.
+   *
+   * Two links, each carrying the same `media` and `imagesrcset` as the
+   * matching `<picture>` source. One link would preload the desktop crop on a
+   * phone, which then downloads the padded variant as well — paying twice on
+   * the one request that decides LCP.
    */
   private preloadHero(url: string): void {
     if (!url) {
@@ -110,12 +122,28 @@ export class HomeComponent {
       return;
     }
 
-    const link = this.document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'image';
-    link.setAttribute('fetchpriority', 'high');
-    link.setAttribute('data-hero-preload', '');
-    link.href = this.cloudinary.transform(url, 1600);
-    head.appendChild(link);
+    const variants = [
+      { media: HERO_MOBILE_MEDIA, srcset: this.cloudinary.srcsetWith(url, HERO_MOBILE_TRANSFORM) },
+      { media: '(min-width: 768px)', srcset: this.cloudinary.srcset(url) },
+    ];
+
+    for (const variant of variants) {
+      const link = this.document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.setAttribute('fetchpriority', 'high');
+      link.setAttribute('data-hero-preload', '');
+      link.media = variant.media;
+
+      if (variant.srcset) {
+        link.setAttribute('imagesrcset', variant.srcset);
+        link.setAttribute('imagesizes', '100vw');
+      } else {
+        // Not a Cloudinary URL, so there is no srcset to offer.
+        link.href = url;
+      }
+
+      head.appendChild(link);
+    }
   }
 }

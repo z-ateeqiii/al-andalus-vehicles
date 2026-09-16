@@ -3,12 +3,19 @@
    gradient — CSS has no logical keyword — so RTL is the default and LTR is
    the override. */
 .hero-scrim-inline {
+  display: none;
   background-image: linear-gradient(
     to left,
     color-mix(in oklab, var(--color-ink) 92%, transparent),
     color-mix(in oklab, var(--color-ink) 35%, transparent) 55%,
     transparent 85%
   );
+}
+
+@media (min-width: 768px) {
+  .hero-scrim-inline {
+    display: block;
+  }
 }
 
 [dir='ltr'] .hero-scrim-inline {
@@ -18,4 +25,43 @@
     color-mix(in oklab, var(--color-ink) 35%, transparent) 55%,
     transparent 85%
   );
+}
+
+/* The mobile variant is padded to 9:16 with the photo at the bottom, so the
+   truck must stay anchored there — any height the viewport does not need is
+   taken off the ink band at the top. */
+.hero-image {
+  object-position: center bottom;
+}
+
+@media (min-width: 768px) {
+  .hero-image {
+    object-position: center;
+  }
+}
+
+/* Up from the bottom.
+
+   On mobile the padded crop already supplies a flat ink band at the top for
+   the text, so a heavy scrim there would only crush the photo underneath —
+   the truck lives in the bottom third. Mobile gets a light fade that blends
+   the photo into the page; the strong scrim is a desktop concern, where the
+   text really does sit over the picture. */
+.hero-scrim-block {
+  background-image: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--color-ink) 40%, transparent) 0%,
+    transparent 14%
+  );
+}
+
+@media (min-width: 768px) {
+  .hero-scrim-block {
+    background-image: linear-gradient(
+      to top,
+      var(--color-ink) 0%,
+      color-mix(in oklab, var(--color-ink) 55%, transparent) 50%,
+      color-mix(in oklab, var(--color-ink) 10%, transparent) 100%
+    );
+  }
 }
