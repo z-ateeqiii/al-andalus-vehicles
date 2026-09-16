@@ -157,6 +157,16 @@ export class SeoService {
         unitCode: 'KMT',
       };
     }
+    // Body type lets a search engine tell a ميكروباص from a ربع نقل, which
+    // the name alone does not.
+    car['bodyType'] = VEHICLE_CATEGORY_LABELS[vehicle.category];
+
+    if (typeof vehicle.seats === 'number') {
+      car['vehicleSeatingCapacity'] = {
+        '@type': 'QuantitativeValue',
+        value: vehicle.seats,
+      };
+    }
     if (vehicle.condition) {
       car['itemCondition'] =
         vehicle.condition === 'new'

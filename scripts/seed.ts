@@ -1,6 +1,9 @@
 /**
  * Seeds Firestore with sample vehicles and a default `settings/showroom`.
  *
+ * Six ربع نقل, two ميكروباص and two ملاكي, so every labelled section on the
+ * inventory page has something in it.
+ *
  * This is a standalone script and never a fallback inside the app — the app
  * reads from Firestore only (build spec §15).
  *
@@ -183,6 +186,53 @@ const VEHICLES: VehicleDraft[] = [
     description: 'السعر بيتحدد على حسب المعاينة، كلمنا على واتساب.',
     coverImageUrl: placeholder('دونج فينج نص نقل 2021'),
     imageUrls: gallery('دونج فينج نص نقل 2021', 2),
+    status: 'available',
+  },
+  {
+    category: 'minibus',
+    brand: 'تويوتا',
+    model: 'هايس',
+    year: 2021,
+    price: 1150000,
+    priceOnRequest: false,
+    currency: 'EGP',
+    color: 'أبيض',
+    colorHex: '#E8E1D3',
+    mileage: 120000,
+    condition: 'used',
+    engine: '2.5L ديزل',
+    power: '102 حصان',
+    transmission: 'مانيوال',
+    fuelType: 'ديزل',
+    seats: 14,
+    description: 'هايس شغل خطوط، صيانة دورية والموتور نضيف. مناسبة للرحلات والتوصيل.',
+    features: ['تكييف', 'باور ستيرنج', 'فرامل ABS'],
+    coverImageUrl: placeholder('تويوتا هايس 2021'),
+    imageUrls: gallery('تويوتا هايس 2021', 4),
+    status: 'available',
+    isFeatured: true,
+  },
+  {
+    category: 'minibus',
+    brand: 'ميتسوبيشي',
+    model: 'روزا',
+    year: 2019,
+    price: 1480000,
+    priceOnRequest: false,
+    currency: 'EGP',
+    color: 'أبيض',
+    colorHex: '#E8E1D3',
+    mileage: 185000,
+    condition: 'used',
+    engine: '3.9L ديزل',
+    power: '150 حصان',
+    transmission: 'مانيوال',
+    fuelType: 'ديزل',
+    seats: 26,
+    description: 'روزا بحالة كويسة، كاوتش جديد ومكيفة. مناسبة لنقل العمال والرحلات الطويلة.',
+    features: ['تكييف', 'فرامل ABS'],
+    coverImageUrl: placeholder('ميتسوبيشي روزا 2019'),
+    imageUrls: gallery('ميتسوبيشي روزا 2019', 3),
     status: 'available',
   },
   {
