@@ -3,6 +3,7 @@ import { adminGuard } from '../../core/guards/admin.guard';
 import { AdminLayoutComponent } from '../../layouts/admin-layout/admin-layout.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { LoginComponent } from './login/login.component';
+import { AdminVehiclesComponent } from './vehicles/vehicles.component';
 import { PlaceholderPageComponent } from '../../shared/components/placeholder-page/placeholder-page.component';
 
 /**
@@ -28,7 +29,7 @@ export const ADMIN_ROUTES: Routes = [
         component: DashboardComponent,
         data: { title: 'لوحة التحكم' },
       },
-      { path: 'vehicles', component: PlaceholderPageComponent, data: { title: 'العربيات' } },
+      { path: 'vehicles', component: AdminVehiclesComponent, data: { title: 'العربيات' } },
       {
         path: 'vehicles/new',
         component: PlaceholderPageComponent,

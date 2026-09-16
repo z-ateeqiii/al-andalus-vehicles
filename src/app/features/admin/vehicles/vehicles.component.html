@@ -1,1 +1,234 @@
-<p>vehicles works!</p>
+<div class="flex flex-col gap-5">
+  <!-- Filters and the one primary action. -->
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
+    <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+      <label class="text-xs text-muted" for="admin-search">دوّر على عربية</label>
+      <input
+        id="admin-search"
+        type="search"
+        class="field-input"
+        placeholder="بالماركة أو الموديل أو السنة"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1.5 sm:w-44">
+      <label class="text-xs text-muted" for="admin-category">نوع العربية</label>
+      <select
+        id="admin-category"
+        class="field-input"
+        [value]="category()"
+        (change)="category.set($any($event.target).value)"
+      >
+        <option value="all">الكل</option>
+        <option value="pickup">نص نقل</option>
+        <option value="passenger">ملاكي</option>
+      </select>
+    </div>
+
+    <div class="flex flex-col gap-1.5 sm:w-44">
+      <label class="text-xs text-muted" for="admin-status">الحالة</label>
+      <select
+        id="admin-status"
+        class="field-input"
+        [value]="status()"
+        (change)="status.set($any($event.target).value)"
+      >
+        <option value="all">الكل</option>
+        @for (option of statusOptions; track option) {
+          <option [value]="option">{{ statusLabels[option] }}</option>
+        }
+      </select>
+    </div>
+
+    <a class="btn-primary shrink-0" routerLink="/admin/vehicles/new">
+      <app-icon name="plus" [size]="18" />
+      ضيف عربية جديدة
+    </a>
+  </div>
+
+  @if (failed()) {
+    <app-error-state (retry)="load()" />
+  } @else if (filtered() === null) {
+    <div class="surface-panel flex flex-col gap-3 p-4" aria-busy="true">
+      @for (row of skeletonRows; track row) {
+        <div class="flex items-center gap-3">
+          <app-skeleton shape="block" width="4rem" height="3rem" />
+          <div class="flex flex-1 flex-col gap-2">
+            <app-skeleton width="45%" height="0.9rem" />
+            <app-skeleton width="25%" height="0.8rem" />
+          </div>
+          <app-skeleton shape="block" width="7rem" height="2.5rem" />
+        </div>
+      }
+    </div>
+  } @else if (filtered()!.length === 0) {
+    <app-empty-state
+      icon="inbox"
+      [title]="hasFilters() ? 'مفيش نتايج مطابقة' : 'لسه مفيش عربيات'"
+      [message]="
+        hasFilters() ? 'جرّب تغيّر البحث أو الفلاتر.' : 'ابدأ بإضافة أول عربية عشان تظهر في المعرض.'
+      "
+      [actionLabel]="hasFilters() ? 'امسح الفلاتر' : 'ضيف عربية جديدة'"
+      [actionLink]="hasFilters() ? null : '/admin/vehicles/new'"
+      (action)="clearFilters()"
+    />
+  } @else {
+    <p class="text-xs text-muted">
+      <span class="font-latin">{{ filtered()!.length }}</span> عربية
+    </p>
+
+    <!-- Desktop: a table. -->
+    <div class="surface-panel hidden overflow-x-auto lg:block">
+      <table class="w-full text-start text-sm">
+        <thead class="border-b border-elevated/40 text-xs text-muted">
+          <tr>
+            <th class="px-4 py-3 text-start font-medium">العربية</th>
+            <th class="px-4 py-3 text-start font-medium">النوع</th>
+            <th class="px-4 py-3 text-start font-medium">السعر</th>
+            <th class="px-4 py-3 text-start font-medium">الحالة</th>
+            <th class="px-4 py-3 text-start font-medium">
+              <span class="sr-only">إجراءات</span>
+            </th>
+          </tr>
+        </thead>
+
+        <tbody class="divide-y divide-elevated/40">
+          @for (vehicle of filtered(); track vehicle.id) {
+            <tr class="transition-colors hover:bg-elevated/25">
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="size-12 shrink-0 overflow-hidden rounded-control bg-elevated/40">
+                    @if (vehicle.coverImageUrl) {
+                      <app-cloud-image
+                        [src]="vehicle.coverImageUrl"
+                        [alt]="titleOf(vehicle)"
+                        sizes="48px"
+                        [width]="96"
+                        [height]="96"
+                        [baseWidth]="400"
+                        imgClass="h-full w-full object-cover"
+                        class="h-full w-full"
+                      />
+                    }
+                  </div>
+                  <span class="font-bold text-cream">{{ titleOf(vehicle) }}</span>
+                </div>
+              </td>
+
+              <td class="px-4 py-3 text-muted">{{ categoryLabels[vehicle.category] }}</td>
+              <td class="price px-4 py-3">{{ vehicle.price | egpPrice }}</td>
+
+              <td class="px-4 py-3">
+                <select
+                  class="field-input h-10 w-36"
+                  [value]="vehicle.status"
+                  [disabled]="isSaving(vehicle.id)"
+                  (change)="changeStatus(vehicle, $any($event.target).value)"
+                  [attr.aria-label]="'حالة ' + titleOf(vehicle)"
+                >
+                  @for (option of statusOptions; track option) {
+                    <option [value]="option">{{ statusLabels[option] }}</option>
+                  }
+                </select>
+              </td>
+
+              <td class="px-4 py-3">
+                <div class="flex items-center justify-end gap-1">
+                  <a
+                    class="flex size-11 items-center justify-center rounded-control text-muted transition hover:text-gold"
+                    [routerLink]="['/admin/vehicles/edit', vehicle.id]"
+                    [attr.aria-label]="'عدّل بيانات ' + titleOf(vehicle)"
+                  >
+                    <app-icon name="edit" [size]="18" />
+                  </a>
+
+                  <button
+                    type="button"
+                    class="flex size-11 items-center justify-center rounded-control text-muted transition hover:text-danger"
+                    (click)="askDelete(vehicle)"
+                    [attr.aria-label]="'امسح ' + titleOf(vehicle)"
+                  >
+                    <app-icon name="trash" [size]="18" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile: the same rows as cards. -->
+    <ul class="flex flex-col gap-3 lg:hidden">
+      @for (vehicle of filtered(); track vehicle.id) {
+        <li class="surface-panel flex flex-col gap-3 p-3">
+          <div class="flex items-center gap-3">
+            <div class="size-16 shrink-0 overflow-hidden rounded-control bg-elevated/40">
+              @if (vehicle.coverImageUrl) {
+                <app-cloud-image
+                  [src]="vehicle.coverImageUrl"
+                  [alt]="titleOf(vehicle)"
+                  sizes="64px"
+                  [width]="128"
+                  [height]="128"
+                  [baseWidth]="400"
+                  imgClass="h-full w-full object-cover"
+                  class="h-full w-full"
+                />
+              }
+            </div>
+
+            <div class="flex min-w-0 flex-1 flex-col">
+              <span class="truncate text-sm font-bold text-cream">{{ titleOf(vehicle) }}</span>
+              <span class="text-xs text-muted">{{ categoryLabels[vehicle.category] }}</span>
+              <span class="price text-sm">{{ vehicle.price | egpPrice }}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <select
+              class="field-input h-11 flex-1"
+              [value]="vehicle.status"
+              [disabled]="isSaving(vehicle.id)"
+              (change)="changeStatus(vehicle, $any($event.target).value)"
+              [attr.aria-label]="'حالة ' + titleOf(vehicle)"
+            >
+              @for (option of statusOptions; track option) {
+                <option [value]="option">{{ statusLabels[option] }}</option>
+              }
+            </select>
+
+            <a
+              class="flex size-11 shrink-0 items-center justify-center rounded-control border border-elevated/60 text-muted transition hover:text-gold"
+              [routerLink]="['/admin/vehicles/edit', vehicle.id]"
+              [attr.aria-label]="'عدّل بيانات ' + titleOf(vehicle)"
+            >
+              <app-icon name="edit" [size]="18" />
+            </a>
+
+            <button
+              type="button"
+              class="flex size-11 shrink-0 items-center justify-center rounded-control border border-elevated/60 text-muted transition hover:text-danger"
+              (click)="askDelete(vehicle)"
+              [attr.aria-label]="'امسح ' + titleOf(vehicle)"
+            >
+              <app-icon name="trash" [size]="18" />
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</div>
+
+<app-confirm-dialog
+  [open]="pendingDelete() !== null"
+  title="متأكد إنك عايز تمسح العربية دي؟"
+  [message]="deleteMessage()"
+  confirmLabel="امسح العربية"
+  [working]="deleting()"
+  (confirm)="confirmDelete()"
+  (cancel)="cancelDelete()"
+/>
