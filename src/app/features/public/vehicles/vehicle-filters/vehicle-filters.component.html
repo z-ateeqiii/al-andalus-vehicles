@@ -8,7 +8,8 @@
       (change)="onCategory($any($event.target).value)"
     >
       <option value="all">الكل</option>
-      <option value="pickup">نص نقل</option>
+      <option value="pickup">ربع نقل</option>
+      <option value="minibus">ميكروباص</option>
       @if (showPassengerVehicles()) {
         <option value="passenger">ملاكي</option>
       }

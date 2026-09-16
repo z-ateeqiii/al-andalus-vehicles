@@ -66,7 +66,8 @@ export class VehicleFiltersComponent {
   }
 
   protected onCategory(value: string): void {
-    this.draftCategory.set(value === 'pickup' || value === 'passenger' ? value : 'all');
+    const known: readonly string[] = ['pickup', 'minibus', 'passenger'];
+    this.draftCategory.set(known.includes(value) ? (value as VehicleCategory) : 'all');
   }
 
   protected submit(): void {

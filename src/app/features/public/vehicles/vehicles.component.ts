@@ -2,7 +2,15 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ShowroomSettings } from '../../../core/models/showroom-settings.model';
-import { Vehicle, VehicleCategory } from '../../../core/models/vehicle.model';
+import {
+  OPTIONAL_VEHICLE_CATEGORIES,
+  VEHICLE_CATEGORY_EMPTY_MESSAGES,
+  VEHICLE_CATEGORY_LABELS,
+  VEHICLE_CATEGORY_ORDER,
+  VEHICLE_CATEGORY_SECTION_TITLES,
+  Vehicle,
+  VehicleCategory,
+} from '../../../core/models/vehicle.model';
 import { SeoService } from '../../../core/services/seo.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { VehicleService } from '../../../core/services/vehicle.service';
@@ -73,7 +81,9 @@ export class VehiclesComponent {
 
   protected readonly category = computed<CategoryFilter>(() => {
     const value = this.params().get('category');
-    return value === 'pickup' || value === 'passenger' ? value : 'all';
+    return VEHICLE_CATEGORY_ORDER.includes(value as VehicleCategory)
+      ? (value as VehicleCategory)
+      : 'all';
   });
 
   protected readonly brand = computed(() => this.params().get('brand') ?? '');
@@ -88,17 +98,20 @@ export class VehiclesComponent {
 
   protected readonly showPassenger = computed(() => this.settings()?.showPassengerVehicles ?? true);
 
-  protected readonly chips = computed<readonly Chip[]>(() => {
-    const chips: Chip[] = [
-      { value: 'all', label: 'الكل' },
-      { value: 'pickup', label: 'نص نقل' },
-    ];
-    // The ملاكي chip only exists when the owner has switched the section on.
-    if (this.showPassenger()) {
-      chips.push({ value: 'passenger', label: 'ملاكي' });
-    }
-    return chips;
-  });
+  /** Which categories a visitor may see right now, in display order. */
+  protected readonly visibleCategories = computed<readonly VehicleCategory[]>(() =>
+    VEHICLE_CATEGORY_ORDER.filter(
+      (category) => !OPTIONAL_VEHICLE_CATEGORIES.includes(category) || this.showPassenger(),
+    ),
+  );
+
+  protected readonly chips = computed<readonly Chip[]>(() => [
+    { value: 'all', label: 'الكل' },
+    ...this.visibleCategories().map((category) => ({
+      value: category,
+      label: VEHICLE_CATEGORY_LABELS[category],
+    })),
+  ]);
 
   /** Brand options come from the documents themselves. */
   protected readonly brands = computed(() => {
@@ -133,13 +146,15 @@ export class VehiclesComponent {
     return options;
   });
 
-  /** Everything public, minus ملاكي when the owner has that section off. */
+  /** Everything public, minus any category the owner has switched off. */
   private readonly visible = computed(() => {
     const list = this.all();
     if (list === null) {
       return null;
     }
-    return this.showPassenger() ? list : list.filter((v) => v.category !== 'passenger');
+
+    const allowed = this.visibleCategories();
+    return list.filter((vehicle) => allowed.includes(vehicle.category));
   });
 
   private readonly filtered = computed(() => {
@@ -179,30 +194,21 @@ export class VehiclesComponent {
   });
 
   /**
-   * Two labelled sections when `الكل` is selected, one otherwise — exactly as
-   * the storyboard shows.
+   * One labelled section per visible category when `الكل` is selected, and
+   * just the chosen one otherwise — as the storyboard shows, now with three.
    */
   protected readonly sections = computed<readonly Section[]>(() => {
     const list = this.filtered();
     const selected = this.category();
-    const wanted: VehicleCategory[] = [];
 
-    if (selected === 'all' || selected === 'pickup') {
-      wanted.push('pickup');
-    }
-    if ((selected === 'all' || selected === 'passenger') && this.showPassenger()) {
-      wanted.push('passenger');
-    }
-
-    return wanted.map((key) => ({
-      key,
-      title: key === 'pickup' ? 'عربيات نص نقل' : 'عربيات ملاكي',
-      emptyMessage:
-        key === 'pickup'
-          ? 'لسه مفيش عربيات نص نقل متاحة دلوقتي'
-          : 'لسه مفيش عربيات ملاكي متاحة دلوقتي',
-      vehicles: list === null ? null : list.filter((vehicle) => vehicle.category === key),
-    }));
+    return this.visibleCategories()
+      .filter((category) => selected === 'all' || selected === category)
+      .map((key) => ({
+        key,
+        title: VEHICLE_CATEGORY_SECTION_TITLES[key],
+        emptyMessage: VEHICLE_CATEGORY_EMPTY_MESSAGES[key],
+        vehicles: list === null ? null : list.filter((vehicle) => vehicle.category === key),
+      }));
   });
 
   protected readonly resultCount = computed(() => this.filtered()?.length ?? null);
@@ -214,7 +220,7 @@ export class VehiclesComponent {
     this.seo.applyPage({
       title: 'جميع العربيات',
       description:
-        'اتفرج على كل عربيات النص نقل والربع نقل والملاكي المتاحة في معرض الأندلس، بأسعارها ومواصفاتها.',
+        'اتفرج على كل عربيات ربع النقل والميكروباص والملاكي المتاحة في معرض الأندلس، بأسعارها ومواصفاتها.',
       path: '/vehicles',
     });
   }
