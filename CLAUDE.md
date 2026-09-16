@@ -117,12 +117,12 @@ everything else accordingly.
 
 ```css
 @theme {
-  --color-ink:      #0F0D0A;  /* page background */
-  --color-surface:  #1B1A18;  /* cards, panels */
-  --color-elevated: #2E2A24;  /* hover, borders, inputs */
-  --color-gold:     #D4AF7C;  /* accent, prices, primary buttons */
-  --color-cream:    #E8E1D3;  /* primary text */
-  --color-muted:    #9A9288;  /* secondary text — warm grey */
+  --color-ink: #0f0d0a; /* page background */
+  --color-surface: #1b1a18; /* cards, panels */
+  --color-elevated: #2e2a24; /* hover, borders, inputs */
+  --color-gold: #d4af7c; /* accent, prices, primary buttons */
+  --color-cream: #e8e1d3; /* primary text */
+  --color-muted: #9a9288; /* secondary text — warm grey */
 }
 ```
 
@@ -214,3 +214,26 @@ Cloudinary API secret in the frontend.**
 - Never commit `node_modules`, `.angular`, or `dist`.
 - Do not stop to ask about Firebase credentials, the Cloudinary preset, or the WhatsApp
   number — create clearly-marked placeholders and keep going.
+
+---
+
+## 7. Known debt
+
+Deliberate compromises, not oversights. Each is safe today and each has a
+condition under which it stops being safe.
+
+- **`transfer-codec.ts` rebuilds timestamps as a stand-in, not a real
+  `Timestamp`.** Reconstructing the SDK class on the hydrating client would
+  pull ~550kB of Firestore back into the first load and undo the transfer
+  cache. The stand-in implements `seconds`, `nanoseconds`, `toDate`,
+  `toMillis`, `isEqual`, `valueOf`, `toJSON` and `toString`, but
+  **`instanceof Timestamp` is false for it and `toInstant()` is absent**.
+  Safe while nothing reads `createdAt` / `updatedAt` on a transferred
+  document — verify that before relying on either.
+
+- **The visit counter is the only thing pulling Firestore onto the public
+  site.** It waits for main-thread idle, so it costs no paint time, but it
+  still downloads ~550kB for every first-time visitor just to add 1 to two
+  counters. Replacing it with a plain `fetch` to the Firestore REST `commit`
+  endpoint (a `FieldTransform` with `increment`) would take the SDK off the
+  public site entirely and leave it only in the lazy admin chunk.
