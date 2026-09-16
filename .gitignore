@@ -56,3 +56,7 @@ Thumbs.db
 
 # Verification builds (the dev server holds /dist)
 /dist-verify
+
+# Side-by-side perf builds
+/dist-after
+/dist-before
