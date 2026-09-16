@@ -117,12 +117,12 @@ everything else accordingly.
 
 ```css
 @theme {
-  --color-ink: #0f0d0a; /* page background */
-  --color-surface: #1b1a18; /* cards, panels */
-  --color-elevated: #2e2a24; /* hover, borders, inputs */
-  --color-gold: #d4af7c; /* accent, prices, primary buttons */
-  --color-cream: #e8e1d3; /* primary text */
-  --color-muted: #9a9288; /* secondary text — warm grey */
+  --color-ink:      #0F0D0A;  /* page background */
+  --color-surface:  #1B1A18;  /* cards, panels */
+  --color-elevated: #2E2A24;  /* hover, borders, inputs */
+  --color-gold:     #D4AF7C;  /* accent, prices, primary buttons */
+  --color-cream:    #E8E1D3;  /* primary text */
+  --color-muted:    #9A9288;  /* secondary text — warm grey */
 }
 ```
 
