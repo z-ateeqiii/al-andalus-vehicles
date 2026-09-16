@@ -86,7 +86,10 @@
                 <h2 class="mb-4 text-lg font-bold text-cream md:text-xl">{{ section.title }}</h2>
 
                 @if (section.vehicles !== null && section.vehicles.length === 0) {
-                  <app-empty-state icon="car" [title]="section.emptyMessage" />
+                  <!-- A slim note, not a panel: one quiet category among
+                       several should read as a small gap. The full empty
+                       state is reserved for a page with no vehicles at all. -->
+                  <p class="py-3 text-sm text-muted">{{ section.emptyMessage }}</p>
                 } @else {
                   <app-vehicle-grid
                     [vehicles]="section.vehicles"
