@@ -7,32 +7,23 @@
     <div
       class="flex h-4 w-full overflow-hidden rounded-full bg-elevated/60"
       role="img"
-      [attr.aria-label]="
-        'نص نقل ' + pickupPercent() + ' بالمية، ملاكي ' + passengerPercent() + ' بالمية'
-      "
+      [attr.aria-label]="summary()"
     >
-      @if (pickupCount() > 0) {
-        <span class="h-full bg-gold" [style.width.%]="pickupPercent()"></span>
-      }
-      @if (passengerCount() > 0) {
-        <span class="h-full bg-cream/45" [style.width.%]="passengerPercent()"></span>
+      @for (segment of segments(); track segment.key) {
+        @if (segment.count > 0) {
+          <span class="h-full" [class]="segment.swatch" [style.width.%]="segment.percent"></span>
+        }
       }
     </div>
 
     <ul class="flex flex-wrap items-center gap-x-6 gap-y-2">
-      <li class="flex items-center gap-2 text-sm">
-        <span class="size-2.5 shrink-0 rounded-full bg-gold"></span>
-        <span class="text-cream">نص نقل</span>
-        <span class="font-latin text-muted">{{ pickupCount() }} ({{ pickupPercent() }}%)</span>
-      </li>
-
-      <li class="flex items-center gap-2 text-sm">
-        <span class="size-2.5 shrink-0 rounded-full bg-cream/45"></span>
-        <span class="text-cream">ملاكي</span>
-        <span class="font-latin text-muted">
-          {{ passengerCount() }} ({{ passengerPercent() }}%)
-        </span>
-      </li>
+      @for (segment of segments(); track segment.key) {
+        <li class="flex items-center gap-2 text-sm">
+          <span class="size-2.5 shrink-0 rounded-full" [class]="segment.swatch"></span>
+          <span class="text-cream">{{ segment.label }}</span>
+          <span class="font-latin text-muted">{{ segment.count }} ({{ segment.percent }}%)</span>
+        </li>
+      }
     </ul>
   }
 </div>

@@ -67,8 +67,9 @@ export class DashboardComponent {
     return counts ? counts.sold + counts.reserved : null;
   });
 
-  protected readonly pickupCount = computed(() => this.byCategory()?.pickup ?? 0);
-  protected readonly passengerCount = computed(() => this.byCategory()?.passenger ?? 0);
+  protected readonly categoryCounts = computed(
+    () => this.byCategory() ?? { pickup: 0, minibus: 0, passenger: 0 },
+  );
 
   /** `listAll` is already ordered newest first. */
   protected readonly recent = computed(() => this.vehicles()?.slice(0, RECENT_COUNT) ?? []);

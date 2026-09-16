@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { RouterLink } from '@angular/router';
 import {
   VEHICLE_CATEGORY_LABELS,
+  VEHICLE_CATEGORY_ORDER,
   VEHICLE_STATUS_LABELS,
   Vehicle,
   VehicleCategory,
@@ -63,6 +64,7 @@ export class AdminVehiclesComponent {
   protected readonly categoryLabels = VEHICLE_CATEGORY_LABELS;
   protected readonly statusLabels = VEHICLE_STATUS_LABELS;
   protected readonly statusOptions = STATUS_ORDER;
+  protected readonly categoryOptions = VEHICLE_CATEGORY_ORDER;
   protected readonly skeletonRows = [0, 1, 2, 3, 4, 5];
 
   protected readonly filtered = computed(() => {

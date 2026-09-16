@@ -17,7 +17,7 @@
       <app-stat-card label="زوار الموقع" icon="eye" [value]="visitors()" hint="مشاهدات الصفحة" />
     </div>
 
-    <app-category-split [pickupCount]="pickupCount()" [passengerCount]="passengerCount()" />
+    <app-category-split [counts]="categoryCounts()" />
 
     <section class="surface-panel p-4 md:p-5">
       <div class="mb-4 flex items-center justify-between gap-4">

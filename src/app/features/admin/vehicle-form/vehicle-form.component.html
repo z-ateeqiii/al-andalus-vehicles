@@ -19,8 +19,9 @@
         <div class="flex flex-col gap-1.5">
           <label class="text-sm text-cream" for="category">نوع العربية</label>
           <select id="category" class="field-input" formControlName="category">
-            <option value="pickup">نص نقل</option>
-            <option value="passenger">ملاكي</option>
+            @for (option of categoryOptions; track option) {
+              <option [value]="option">{{ categoryLabels[option] }}</option>
+            }
           </select>
         </div>
 
@@ -180,7 +181,7 @@
             />
           </div>
 
-          <!-- Pickup-only. A ملاكي never carries these. -->
+          <!-- Pickup-only. Neither a ملاكي nor a ميكروباص carries these. -->
           @if (isPickup()) {
             <div class="flex flex-col gap-1.5">
               <label class="text-sm text-cream" for="payload">الحمولة</label>
@@ -199,6 +200,22 @@
                 class="field-input"
                 formControlName="bedType"
                 placeholder="صندوق مفتوح"
+              />
+            </div>
+          }
+
+          <!-- Minibus-only: what الحمولة is to a pickup. -->
+          @if (isMinibus()) {
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm text-cream" for="seats">عدد الركاب</label>
+              <input
+                id="seats"
+                type="number"
+                class="field-input font-latin"
+                formControlName="seats"
+                inputmode="numeric"
+                min="1"
+                placeholder="14"
               />
             </div>
           }

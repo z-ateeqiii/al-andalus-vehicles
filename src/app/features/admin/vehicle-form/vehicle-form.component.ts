@@ -10,6 +10,8 @@ import {
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import {
+  VEHICLE_CATEGORY_LABELS,
+  VEHICLE_CATEGORY_ORDER,
   Vehicle,
   VehicleCategory,
   VehicleDraft,
@@ -71,6 +73,9 @@ export class VehicleFormComponent {
 
   protected readonly isEdit = computed(() => !!this.id());
 
+  protected readonly categoryOptions = VEHICLE_CATEGORY_ORDER;
+  protected readonly categoryLabels = VEHICLE_CATEGORY_LABELS;
+
   protected readonly form = this.formBuilder.nonNullable.group({
     category: ['pickup' as VehicleCategory, [Validators.required]],
     brand: ['', [Validators.required]],
@@ -91,6 +96,7 @@ export class VehicleFormComponent {
     fuelType: [''],
     payload: [''],
     bedType: [''],
+    seats: [null as number | null],
     description: [''],
   });
 
@@ -100,6 +106,11 @@ export class VehicleFormComponent {
   protected readonly isPickup = computed(() => {
     this.formState();
     return this.form.controls.category.value === 'pickup';
+  });
+
+  protected readonly isMinibus = computed(() => {
+    this.formState();
+    return this.form.controls.category.value === 'minibus';
   });
 
   protected readonly priceDisabled = computed(() => {
@@ -225,6 +236,7 @@ export class VehicleFormComponent {
   private toDraft(): VehicleDraft {
     const value = this.form.getRawValue();
     const pickup = value.category === 'pickup';
+    const minibus = value.category === 'minibus';
     const onRequest = value.priceOnRequest;
 
     const optional = (text: string): string | undefined => text.trim() || undefined;
@@ -245,9 +257,10 @@ export class VehicleFormComponent {
       power: optional(value.power),
       transmission: optional(value.transmission),
       fuelType: optional(value.fuelType),
-      // Pickup-only fields never travel with a passenger car.
+      // Category-specific fields never travel with the wrong category.
       payload: pickup ? optional(value.payload) : undefined,
       bedType: pickup ? optional(value.bedType) : undefined,
+      seats: minibus && value.seats !== null ? Number(value.seats) : undefined,
       description: optional(value.description),
       features: this.features().length ? [...this.features()] : undefined,
       coverImageUrl: this.cover(),
@@ -293,6 +306,7 @@ export class VehicleFormComponent {
       fuelType: vehicle.fuelType ?? '',
       payload: vehicle.payload ?? '',
       bedType: vehicle.bedType ?? '',
+      seats: vehicle.seats ?? null,
       description: vehicle.description ?? '',
     });
 

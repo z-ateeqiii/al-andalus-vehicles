@@ -22,8 +22,9 @@
         (change)="category.set($any($event.target).value)"
       >
         <option value="all">الكل</option>
-        <option value="pickup">نص نقل</option>
-        <option value="passenger">ملاكي</option>
+        @for (option of categoryOptions; track option) {
+          <option [value]="option">{{ categoryLabels[option] }}</option>
+        }
       </select>
     </div>
 
