@@ -1,1 +1,54 @@
-<p>confirm-dialog works!</p>
+@if (open()) {
+  <div class="fixed inset-0 z-70 flex items-center justify-center p-4">
+    <button
+      type="button"
+      class="absolute inset-0 bg-ink/85 backdrop-blur-sm"
+      (click)="cancel.emit()"
+      aria-label="إلغاء"
+    ></button>
+
+    <div
+      class="surface-panel relative flex w-full max-w-md flex-col gap-4 p-6"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="confirm-title"
+      [attr.aria-describedby]="message() ? 'confirm-message' : null"
+    >
+      <span class="flex size-12 items-center justify-center rounded-full bg-danger/12 text-danger">
+        <app-icon name="alert-triangle" [size]="24" />
+      </span>
+
+      <h2 id="confirm-title" class="text-lg font-bold text-cream">{{ title() }}</h2>
+
+      @if (message()) {
+        <p id="confirm-message" class="text-sm leading-relaxed text-muted">{{ message() }}</p>
+      }
+
+      <div class="mt-2 flex flex-col-reverse gap-3 sm:flex-row">
+        <!-- Safe option first in DOM order, so it takes the initial focus. -->
+        <button
+          type="button"
+          class="btn-secondary flex-1"
+          (click)="cancel.emit()"
+          [disabled]="working()"
+        >
+          {{ cancelLabel() }}
+        </button>
+
+        <button
+          type="button"
+          class="btn-danger flex-1"
+          (click)="confirm.emit()"
+          [disabled]="working()"
+        >
+          @if (working()) {
+            <span class="spinner" aria-hidden="true"></span>
+            بنمسح…
+          } @else {
+            {{ confirmLabel() }}
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

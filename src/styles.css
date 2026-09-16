@@ -202,6 +202,31 @@
     cursor: not-allowed;
   }
 
+  /* Destructive confirmation only. Never the default action on a screen. */
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding-inline: 1.5rem;
+    padding-block: 0.625rem;
+    border-radius: var(--radius-control);
+    background-color: var(--color-danger);
+    color: var(--color-cream);
+    font-weight: 700;
+    transition: background-color 200ms ease;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background-color: color-mix(in oklab, var(--color-danger) 85%, black);
+  }
+
+  .btn-danger:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
   /* Cards and panels: surface fill, 1px elevated border at ~40%. */
   .surface-panel {
     background-color: var(--color-surface);
