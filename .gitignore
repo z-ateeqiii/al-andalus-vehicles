@@ -60,3 +60,4 @@ Thumbs.db
 # Side-by-side perf builds
 /dist-after
 /dist-before
+scripts/dev/.*.tmp.mjs
