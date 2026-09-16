@@ -104,6 +104,12 @@ export class AuthService {
 
     try {
       const credential = await api.fa.signInWithEmailAndPassword(api.auth, email.trim(), password);
+
+      // Publish immediately rather than waiting for onAuthStateChanged: the
+      // caller navigates straight into a guarded route on the next line.
+      this.currentUser.set(credential.user);
+      this.resolved.set(true);
+
       return credential.user;
     } catch (error) {
       throw new Error(messageFor(errorCodeOf(error)));

@@ -17,7 +17,11 @@ export const adminGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  const user = await auth.whenReady();
+  // whenReady() only answers "has the restored session been reported yet".
+  // It resolves once — with null on a cold load — so the answer to "who is
+  // signed in now" has to come from the signal, or signing in could never
+  // get past this guard.
+  await auth.whenReady();
 
-  return user !== null ? true : router.createUrlTree(['/admin/login']);
+  return auth.isSignedIn() ? true : router.createUrlTree(['/admin/login']);
 };
