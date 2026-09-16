@@ -1,68 +1,73 @@
 @if (settings(); as showroom) {
   <!-- ── Hero ─────────────────────────────────────────────────────────── -->
-  <section class="relative flex min-h-[74svh] flex-col overflow-hidden md:min-h-dvh">
-    <!-- Picture band.
-         On mobile this is `relative`, so the image inside it stops where the
-         band does — the trust row below keeps its own ink background and the
-         truck stays whole above it. On desktop the band is `static`, so the
-         same absolutely-positioned image resolves against the section instead
-         and covers the whole hero, exactly as before. -->
-    <div class="relative flex min-h-0 flex-1 items-center md:static">
+  <section class="relative flex flex-col overflow-hidden md:min-h-dvh">
+    <!-- Picture.
+         On mobile this is an ordinary block with a fixed aspect ratio, so the
+         photo is never cropped by viewport arithmetic — an earlier version
+         sized it from `svh` and iOS Safari's URL bar shrank the band until it
+         cut the truck in half. On desktop it goes back to being full-bleed
+         behind the text. -->
+    <div class="relative order-2 w-full md:absolute md:inset-0 md:order-none">
       @if (showroom.heroImageUrl) {
-        <app-cloud-image
-          [src]="showroom.heroImageUrl"
-          alt=""
-          sizes="100vw"
-          [baseWidth]="1600"
-          [priority]="true"
-          [mobileTransform]="heroMobileTransform"
-          [mobileMedia]="heroMobileMedia"
-          imgClass="hero-image absolute inset-0 h-full w-full object-cover"
-          class="absolute inset-0"
-        />
+        <div class="aspect-[5/3] w-full md:h-full md:aspect-auto">
+          <app-cloud-image
+            [src]="showroom.heroImageUrl"
+            alt=""
+            sizes="100vw"
+            [baseWidth]="1600"
+            [priority]="true"
+            [mobileTransform]="heroMobileTransform"
+            [mobileMedia]="heroMobileMedia"
+            imgClass="h-full w-full object-cover"
+            class="block h-full w-full"
+          />
+        </div>
       }
 
-      <!-- Two scrims: one up from the bottom, one in from the RTL start edge. -->
-      <div class="hero-scrim-block absolute inset-0"></div>
-      <div class="hero-scrim-inline absolute inset-0"></div>
+      <!-- Scrims are a desktop concern: there the text sits over the picture.
+           On mobile it sits above it, on ink. -->
+      <div class="hero-scrim-block absolute inset-0 hidden md:block"></div>
+      <div class="hero-scrim-inline absolute inset-0 hidden md:block"></div>
+    </div>
 
-      <div class="relative mx-auto w-full max-w-7xl px-4 pt-16 pb-[52vw] md:px-6 md:pt-24 md:pb-8">
-        <div class="flex w-full max-w-2xl flex-col items-start gap-3 text-start md:gap-4">
-          <h1 class="flex flex-col gap-1">
-            <span class="text-5xl leading-tight font-extrabold text-cream sm:text-6xl lg:text-7xl">
-              {{ showroom.heroHeading }}
-            </span>
-            <span class="text-2xl font-bold text-cream/90 sm:text-3xl lg:text-4xl">
-              {{ showroom.heroSubheading }}
-            </span>
-          </h1>
+    <div
+      class="relative z-10 order-1 mx-auto w-full max-w-7xl px-4 pt-16 pb-4 md:order-none md:flex md:flex-1 md:items-center md:px-6 md:pt-24 md:pb-8"
+    >
+      <div class="flex w-full max-w-2xl flex-col items-start gap-3 text-start md:gap-4">
+        <h1 class="flex flex-col gap-1">
+          <span class="text-5xl leading-tight font-extrabold text-cream sm:text-6xl lg:text-7xl">
+            {{ showroom.heroHeading }}
+          </span>
+          <span class="text-2xl font-bold text-cream/90 sm:text-3xl lg:text-4xl">
+            {{ showroom.heroSubheading }}
+          </span>
+        </h1>
 
-          @if (showroom.heroDescription) {
-            <p class="max-w-xl text-sm leading-relaxed text-cream/70 sm:text-base">
-              {{ showroom.heroDescription }}
-            </p>
-          }
+        @if (showroom.heroDescription) {
+          <p class="max-w-xl text-sm leading-relaxed text-cream/70 sm:text-base">
+            {{ showroom.heroDescription }}
+          </p>
+        }
 
-          <div class="mt-2 flex w-full items-center gap-3 sm:flex-wrap">
-            <a class="btn-primary flex-1 px-4 sm:flex-none sm:px-6" routerLink="/vehicles">
-              تصفح العربيات
-              <app-icon name="arrow-end" [size]="18" />
-            </a>
+        <div class="mt-2 flex w-full items-center gap-3 sm:flex-wrap">
+          <a class="btn-primary flex-1 px-4 sm:flex-none sm:px-6" routerLink="/vehicles">
+            تصفح العربيات
+            <app-icon name="arrow-end" [size]="18" />
+          </a>
 
-            <button
-              type="button"
-              class="btn-secondary flex-1 px-4 sm:flex-none sm:px-6"
-              (click)="contactOnWhatsApp()"
-            >
-              <app-icon name="whatsapp" [size]="18" />
-              تواصل معانا
-            </button>
-          </div>
+          <button
+            type="button"
+            class="btn-secondary flex-1 px-4 sm:flex-none sm:px-6"
+            (click)="contactOnWhatsApp()"
+          >
+            <app-icon name="whatsapp" [size]="18" />
+            تواصل معانا
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="relative z-10 w-full bg-ink md:bg-transparent">
+    <div class="relative z-10 order-3 w-full bg-ink md:order-none md:bg-transparent">
       <div class="mx-auto w-full max-w-7xl px-4 pb-3 md:px-6 md:pb-2">
         <ul
           class="grid grid-cols-3 gap-2 border-t border-elevated/40 pt-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-10 sm:pt-5"

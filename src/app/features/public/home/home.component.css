@@ -27,19 +27,6 @@
   );
 }
 
-/* The mobile variant is padded to 9:16 with the photo at the bottom, so the
-   truck must stay anchored there — any height the viewport does not need is
-   taken off the ink band at the top. */
-.hero-image {
-  object-position: center bottom;
-}
-
-@media (min-width: 768px) {
-  .hero-image {
-    object-position: center;
-  }
-}
-
 /* Up from the bottom.
 
    On mobile the padded crop already supplies a flat ink band at the top for
