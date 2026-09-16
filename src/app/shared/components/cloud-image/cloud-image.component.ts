@@ -49,6 +49,15 @@ export class CloudImageComponent {
 
   readonly imgClass = input('');
 
+  /**
+   * Extra Cloudinary directives for narrow viewports, e.g.
+   * `c_pad,ar_9:16,g_south,b_rgb:0F0D0A`. When set, a `<source>` carrying
+   * this variant is offered ahead of the default image.
+   */
+  readonly mobileTransform = input('');
+
+  readonly mobileMedia = input('(max-width: 767px)');
+
   protected readonly resolved = computed(() =>
     this.cloudinary.transform(this.src(), this.baseWidth()),
   );
@@ -56,4 +65,9 @@ export class CloudImageComponent {
   protected readonly srcset = computed(() => this.cloudinary.srcset(this.src()) || null);
 
   protected readonly loading = computed(() => (this.priority() || this.eager() ? 'eager' : 'lazy'));
+
+  protected readonly mobileSrcset = computed(() => {
+    const extra = this.mobileTransform();
+    return extra ? this.cloudinary.srcsetWith(this.src(), extra) : '';
+  });
 }

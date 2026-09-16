@@ -1,12 +1,18 @@
-<img
-  [src]="resolved()"
-  [attr.srcset]="srcset()"
-  [attr.sizes]="srcset() ? sizes() : null"
-  [alt]="alt()"
-  [attr.width]="width()"
-  [attr.height]="height()"
-  [attr.loading]="loading()"
-  [attr.fetchpriority]="priority() ? 'high' : null"
-  [attr.decoding]="priority() ? 'sync' : 'async'"
-  [class]="imgClass()"
-/>
+<picture>
+  @if (mobileSrcset()) {
+    <source [attr.media]="mobileMedia()" [attr.srcset]="mobileSrcset()" [attr.sizes]="sizes()" />
+  }
+
+  <img
+    [src]="resolved()"
+    [attr.srcset]="srcset()"
+    [attr.sizes]="srcset() ? sizes() : null"
+    [alt]="alt()"
+    [attr.width]="width()"
+    [attr.height]="height()"
+    [attr.loading]="loading()"
+    [attr.fetchpriority]="priority() ? 'high' : null"
+    [attr.decoding]="priority() ? 'sync' : 'async'"
+    [class]="imgClass()"
+  />
+</picture>

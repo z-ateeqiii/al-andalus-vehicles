@@ -149,4 +149,30 @@ export class CloudinaryService {
 
     return widths.map((width) => `${this.transform(url, width)} ${width}w`).join(', ');
   }
+
+  /**
+   * Same as {@link transform}, with extra Cloudinary directives appended —
+   * `c_pad,ar_9:16,g_south,b_rgb:0F0D0A`, say.
+   *
+   * This is how art direction works here: a landscape photo cannot show its
+   * whole subject inside a tall phone viewport, so the mobile variant is a
+   * genuinely different crop rather than the same one squeezed.
+   */
+  transformWith(url: string, width: number, extra: string): string {
+    if (!url.includes(UPLOAD_MARKER)) {
+      return url;
+    }
+
+    const directives = extra ? `f_auto,q_auto,w_${width},${extra}` : `f_auto,q_auto,w_${width}`;
+    return url.replace(UPLOAD_MARKER, `${UPLOAD_MARKER}${directives}/`);
+  }
+
+  /** `srcset` for an art-directed variant. */
+  srcsetWith(url: string, extra: string, widths: readonly number[] = IMAGE_WIDTHS): string {
+    if (!url.includes(UPLOAD_MARKER)) {
+      return '';
+    }
+
+    return widths.map((width) => `${this.transformWith(url, width, extra)} ${width}w`).join(', ');
+  }
 }
