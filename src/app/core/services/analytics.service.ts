@@ -6,6 +6,29 @@ const COLLECTION = 'analytics';
 const TOTAL_DOCUMENT = 'total';
 const SESSION_KEY = 'al-andalus:visit-counted';
 
+/**
+ * Waits for the main thread to go quiet before pulling in the Firestore SDK.
+ *
+ * The counter has no urgency whatsoever, and the chunk is ~550kB: downloading
+ * and parsing it while the visitor is still trying to read the page costs
+ * them blocking time for nothing.
+ */
+function whenIdle(): Promise<void> {
+  return new Promise((resolve) => {
+    const idle = (
+      globalThis as {
+        requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => void;
+      }
+    ).requestIdleCallback;
+
+    if (idle) {
+      idle(() => resolve(), { timeout: 5000 });
+    } else {
+      setTimeout(resolve, 2000);
+    }
+  });
+}
+
 /** `daily_2026-09-16`, in the visitor's own timezone. */
 function dailyDocumentId(date = new Date()): string {
   const pad = (value: number) => String(value).padStart(2, '0');
@@ -23,9 +46,9 @@ function dailyDocumentId(date = new Date()): string {
  * would inflate the number.
  *
  * This is the one public-side caller that genuinely needs Firestore in the
- * browser, so it is also the one that decides when that chunk downloads. It
- * is invoked from `afterNextRender`, which means the `import()` starts after
- * the first paint rather than competing with it.
+ * browser, so it is also the one that decides when that chunk downloads: it
+ * waits for the main thread to go idle first, so the ~550kB SDK never
+ * competes with painting or hydrating the page the visitor came for.
  */
 @Injectable({ providedIn: 'root' })
 export class AnalyticsService {
@@ -45,6 +68,8 @@ export class AnalyticsService {
 
     // Marked before the await, so two calls in the same tick cannot both pass.
     this.markCounted();
+
+    await whenIdle();
 
     try {
       const { db, fs } = await loadFirestore();
