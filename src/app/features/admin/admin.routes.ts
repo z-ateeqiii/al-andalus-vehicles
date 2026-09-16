@@ -3,15 +3,13 @@ import { adminGuard } from '../../core/guards/admin.guard';
 import { AdminLayoutComponent } from '../../layouts/admin-layout/admin-layout.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { LoginComponent } from './login/login.component';
+import { SettingsComponent } from './settings/settings.component';
 import { VehicleFormComponent } from './vehicle-form/vehicle-form.component';
 import { AdminVehiclesComponent } from './vehicles/vehicles.component';
-import { PlaceholderPageComponent } from '../../shared/components/placeholder-page/placeholder-page.component';
 
 /**
  * Lazy-loaded admin area. Login sits outside the layout — there is no sidebar
  * to show before signing in. There is no public sign-up route.
- *
- * TODO(features): replace every PlaceholderPageComponent with its real page.
  */
 export const ADMIN_ROUTES: Routes = [
   {
@@ -41,7 +39,7 @@ export const ADMIN_ROUTES: Routes = [
         component: VehicleFormComponent,
         data: { title: 'عدّل بيانات العربية' },
       },
-      { path: 'settings', component: PlaceholderPageComponent, data: { title: 'الإعدادات' } },
+      { path: 'settings', component: SettingsComponent, data: { title: 'الإعدادات' } },
     ],
   },
 ];

@@ -1,1 +1,160 @@
-<p>settings works!</p>
+@if (loading()) {
+  <div class="flex flex-col gap-4" aria-busy="true">
+    <app-skeleton shape="block" width="100%" height="16rem" />
+    <app-skeleton shape="block" width="100%" height="14rem" />
+  </div>
+} @else {
+  <form class="flex flex-col gap-6 pb-28" [formGroup]="form" (ngSubmit)="save()">
+    <!-- ── الواجهة ──────────────────────────────────────────────────── -->
+    <section class="surface-panel flex flex-col gap-5 p-4 md:p-6">
+      <div>
+        <h2 class="text-base font-bold text-cream">واجهة الموقع</h2>
+        <p class="mt-1 text-xs text-muted">دي أول حاجة الزبون بيشوفها لما يفتح الموقع.</p>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <span class="text-sm text-cream">صورة الواجهة</span>
+
+        @if (heroCover()) {
+          <div class="relative aspect-[16/9] overflow-hidden rounded-card sm:aspect-[21/9]">
+            <app-cloud-image
+              [src]="heroCover()"
+              alt="معاينة صورة الواجهة"
+              sizes="100vw"
+              [baseWidth]="1200"
+              imgClass="h-full w-full object-cover"
+              class="h-full w-full"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-ink/85 to-transparent"></div>
+            <div class="absolute inset-x-0 bottom-0 p-4 text-start">
+              <p class="text-xl font-extrabold text-cream sm:text-2xl">
+                {{ form.controls.heroHeading.value }}
+              </p>
+              <p class="text-sm text-cream/85">{{ form.controls.heroSubheading.value }}</p>
+            </div>
+          </div>
+          <p class="text-xs text-muted">دي معاينة تقريبية لشكل الواجهة في الموقع.</p>
+        }
+
+        <app-image-upload [(images)]="heroImages" [(cover)]="heroCover" />
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="heroHeading">العنوان الكبير</label>
+          <input id="heroHeading" class="field-input" formControlName="heroHeading" />
+          @if (requiredError('heroHeading')) {
+            <p class="text-xs text-danger">{{ requiredError('heroHeading') }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="heroSubheading">السطر اللي تحته</label>
+          <input id="heroSubheading" class="field-input" formControlName="heroSubheading" />
+        </div>
+
+        <div class="flex flex-col gap-1.5 sm:col-span-2">
+          <label class="text-sm text-cream" for="heroDescription">وصف قصير</label>
+          <textarea
+            id="heroDescription"
+            class="field-input min-h-24"
+            formControlName="heroDescription"
+            rows="3"
+          ></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── بيانات التواصل ───────────────────────────────────────────── -->
+    <section class="surface-panel flex flex-col gap-5 p-4 md:p-6">
+      <div>
+        <h2 class="text-base font-bold text-cream">بيانات التواصل</h2>
+        <p class="mt-1 text-xs text-muted">
+          دي البيانات اللي بتظهر في الموقع، ورقم الواتساب اللي بتوصل عليه رسايل الزباين.
+        </p>
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="showroomName">اسم المعرض</label>
+          <input id="showroomName" class="field-input" formControlName="showroomName" />
+          @if (requiredError('showroomName')) {
+            <p class="text-xs text-danger">{{ requiredError('showroomName') }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="whatsappNumber">رقم الواتساب</label>
+          <input
+            id="whatsappNumber"
+            class="field-input font-latin"
+            formControlName="whatsappNumber"
+            dir="ltr"
+            inputmode="tel"
+            placeholder="201276364094"
+          />
+          <p class="text-xs text-muted">بكود الدولة من غير علامة +، يعني 20 وبعدها الرقم.</p>
+          @if (requiredError('whatsappNumber')) {
+            <p class="text-xs text-danger">{{ requiredError('whatsappNumber') }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="phoneNumber">رقم التليفون</label>
+          <input
+            id="phoneNumber"
+            class="field-input font-latin"
+            formControlName="phoneNumber"
+            dir="ltr"
+            inputmode="tel"
+          />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm text-cream" for="workingHours">مواعيد العمل</label>
+          <input id="workingHours" class="field-input" formControlName="workingHours" />
+        </div>
+
+        <div class="flex flex-col gap-1.5 sm:col-span-2">
+          <label class="text-sm text-cream" for="address">العنوان</label>
+          <input id="address" class="field-input" formControlName="address" />
+        </div>
+      </div>
+    </section>
+
+    <!-- ── أقسام الموقع ─────────────────────────────────────────────── -->
+    <section class="surface-panel flex flex-col gap-4 p-4 md:p-6">
+      <h2 class="text-base font-bold text-cream">أقسام الموقع</h2>
+
+      <label class="flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          class="mt-1 size-5 shrink-0 accent-gold"
+          formControlName="showPassengerVehicles"
+        />
+        <span class="flex flex-col">
+          <span class="text-sm text-cream">اعرض عربيات الملاكي</span>
+          <span class="text-xs text-muted">
+            لو قفلتها، قسم الملاكي هيختفي من الموقع خالص وهيفضل النص نقل بس. العربيات نفسها مش
+            هتتمسح.
+          </span>
+        </span>
+      </label>
+    </section>
+
+    <div
+      class="fixed inset-x-0 bottom-0 z-40 border-t border-elevated/40 bg-ink/95 p-3 backdrop-blur md:p-4"
+    >
+      <div class="mx-auto flex max-w-5xl">
+        <button type="submit" class="btn-primary w-full sm:w-auto" [disabled]="saving()">
+          @if (saving()) {
+            <span class="spinner" aria-hidden="true"></span>
+            بنحفظ…
+          } @else {
+            احفظ الإعدادات
+          }
+        </button>
+      </div>
+    </div>
+  </form>
+}
