@@ -168,7 +168,9 @@ export class VehicleService {
         counts[vehicle.category] += 1;
         return counts;
       },
-      { pickup: 0, passenger: 0 } as Record<VehicleCategory, number>,
+      // Written out rather than cast, so adding a category is a compile
+      // error here instead of a silent NaN in the dashboard.
+      { pickup: 0, minibus: 0, passenger: 0 } satisfies Record<VehicleCategory, number>,
     );
   }
 
@@ -178,7 +180,7 @@ export class VehicleService {
         counts[vehicle.status] += 1;
         return counts;
       },
-      { available: 0, reserved: 0, sold: 0, hidden: 0 } as Record<VehicleStatus, number>,
+      { available: 0, reserved: 0, sold: 0, hidden: 0 } satisfies Record<VehicleStatus, number>,
     );
   }
 
