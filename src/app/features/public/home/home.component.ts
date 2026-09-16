@@ -17,7 +17,7 @@ import { VehicleGridComponent } from '../../../shared/components/vehicle-grid/ve
 import { HomeSkeletonComponent } from './home-skeleton/home-skeleton.component';
 
 /** Keeps the preload hints and the <picture> source in step. */
-export const HERO_MOBILE_TRANSFORM = 'c_fill,ar_5:3,g_west';
+export const HERO_MOBILE_TRANSFORM = 'c_fill,ar_6:5,g_west';
 export const HERO_MOBILE_MEDIA = '(max-width: 767px)';
 
 interface TrustItem {

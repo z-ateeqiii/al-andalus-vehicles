@@ -1,44 +1,53 @@
-/* Scrim in from the RTL start edge (the right), so the hero text stays
-   readable over the image subject. Physical directions are unavoidable in a
-   gradient — CSS has no logical keyword — so RTL is the default and LTR is
-   the override. */
+/* Scrim in from the RTL start edge (the right), where the text sits.
+   Physical directions are unavoidable in a gradient — CSS has no logical
+   keyword — so RTL is the default and LTR is the override. */
 .hero-scrim-inline {
-  display: none;
   background-image: linear-gradient(
     to left,
-    color-mix(in oklab, var(--color-ink) 92%, transparent),
-    color-mix(in oklab, var(--color-ink) 35%, transparent) 55%,
-    transparent 85%
+    color-mix(in oklab, var(--color-ink) 58%, transparent) 0%,
+    color-mix(in oklab, var(--color-ink) 22%, transparent) 60%,
+    transparent 88%
   );
-}
-
-@media (min-width: 768px) {
-  .hero-scrim-inline {
-    display: block;
-  }
 }
 
 [dir='ltr'] .hero-scrim-inline {
   background-image: linear-gradient(
     to right,
-    color-mix(in oklab, var(--color-ink) 92%, transparent),
-    color-mix(in oklab, var(--color-ink) 35%, transparent) 55%,
-    transparent 85%
+    color-mix(in oklab, var(--color-ink) 58%, transparent) 0%,
+    color-mix(in oklab, var(--color-ink) 22%, transparent) 60%,
+    transparent 88%
   );
 }
 
-/* Up from the bottom.
+@media (min-width: 768px) {
+  .hero-scrim-inline {
+    background-image: linear-gradient(
+      to left,
+      color-mix(in oklab, var(--color-ink) 92%, transparent),
+      color-mix(in oklab, var(--color-ink) 35%, transparent) 55%,
+      transparent 85%
+    );
+  }
 
-   On mobile the padded crop already supplies a flat ink band at the top for
-   the text, so a heavy scrim there would only crush the photo underneath —
-   the truck lives in the bottom third. Mobile gets a light fade that blends
-   the photo into the page; the strong scrim is a desktop concern, where the
-   text really does sit over the picture. */
+  [dir='ltr'] .hero-scrim-inline {
+    background-image: linear-gradient(
+      to right,
+      color-mix(in oklab, var(--color-ink) 92%, transparent),
+      color-mix(in oklab, var(--color-ink) 35%, transparent) 55%,
+      transparent 85%
+    );
+  }
+}
+
+/* Up from the bottom. Deliberately light on mobile: the two scrims stack, and
+   the vehicle sits in the lower left where this one is strongest. The trust
+   row carries its own backdrop instead of leaning on this. */
 .hero-scrim-block {
   background-image: linear-gradient(
     to top,
-    color-mix(in oklab, var(--color-ink) 40%, transparent) 0%,
-    transparent 14%
+    color-mix(in oklab, var(--color-ink) 72%, transparent) 0%,
+    color-mix(in oklab, var(--color-ink) 60%, transparent) 50%,
+    color-mix(in oklab, var(--color-ink) 50%, transparent) 100%
   );
 }
 
