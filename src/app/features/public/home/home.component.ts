@@ -76,7 +76,7 @@ export class HomeComponent {
         title: `${settings.heroHeading} ${settings.heroSubheading}`.trim(),
         description:
           settings.heroDescription ||
-          'معرض الأندلس لبيع وشراء عربيات النص نقل والربع نقل والملاكي في مصر.',
+          'معرض الأندلس لبيع وشراء عربيات ربع النقل والميكروباص والملاكي في مصر.',
         path: '/',
         image: settings.heroImageUrl,
       });

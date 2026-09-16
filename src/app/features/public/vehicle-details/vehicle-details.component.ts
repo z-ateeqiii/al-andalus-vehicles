@@ -130,8 +130,13 @@ export class VehicleDetailsComponent {
     if (vehicle.transmission) {
       cells.push({ icon: 'gearbox', label: 'الفتيس', value: vehicle.transmission });
     }
-    if (vehicle.payload) {
+    // Category-specific: the load figures belong to a pickup, the seat count
+    // to a minibus. Neither is offered for the other.
+    if (vehicle.category === 'pickup' && vehicle.payload) {
       cells.push({ icon: 'weight', label: 'الحمولة', value: vehicle.payload });
+    }
+    if (vehicle.category === 'minibus' && typeof vehicle.seats === 'number') {
+      cells.push({ icon: 'user', label: 'عدد الركاب', value: String(vehicle.seats) });
     }
 
     cells.push({
@@ -176,7 +181,7 @@ export class VehicleDetailsComponent {
     if (vehicle.fuelType) {
       tiles.push({ icon: 'fuel', label: 'نوع الوقود', value: vehicle.fuelType });
     }
-    if (vehicle.bedType) {
+    if (vehicle.category === 'pickup' && vehicle.bedType) {
       tiles.push({ icon: 'car', label: 'نوع الصندوق', value: vehicle.bedType });
     }
 
