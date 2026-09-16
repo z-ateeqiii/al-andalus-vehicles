@@ -1,6 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import {
+  ActivatedRoute,
+  ActivatedRouteSnapshot,
+  NavigationEnd,
+  Router,
+  RouterOutlet,
+} from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { ToastComponent } from '../../shared/components/toast/toast.component';
@@ -41,12 +47,28 @@ export class AdminLayoutComponent {
     await this.router.navigate(['/admin/login']);
   }
 
+  /**
+   * Walks to the deepest route that actually declares a title.
+   *
+   * `snapshot` is not populated on a child `ActivatedRoute` until activation
+   * finishes, and this runs once during construction — reading it blindly
+   * threw and took every page inside the layout down with it.
+   */
   private deepestTitle(): string {
-    let route = this.route;
-    while (route.firstChild) {
-      route = route.firstChild;
+    let current: ActivatedRoute | null = this.route;
+    let found = '';
+
+    while (current) {
+      const snapshot: ActivatedRouteSnapshot | undefined = current.snapshot;
+      const title: unknown = snapshot?.data?.['title'];
+
+      if (typeof title === 'string') {
+        found = title;
+      }
+
+      current = current.firstChild;
     }
-    const title: unknown = route.snapshot.data['title'];
-    return typeof title === 'string' ? title : 'لوحة التحكم';
+
+    return found || 'لوحة التحكم';
   }
 }
