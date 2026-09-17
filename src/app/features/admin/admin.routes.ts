@@ -40,6 +40,9 @@ export const ADMIN_ROUTES: Routes = [
         data: { title: 'عدّل بيانات العربية' },
       },
       { path: 'settings', component: SettingsComponent, data: { title: 'الإعدادات' } },
+      // A mistyped admin URL stays in the admin area instead of falling
+      // through to the app-level wildcard, which lands on the public home page.
+      { path: '**', redirectTo: 'dashboard' },
     ],
   },
 ];
