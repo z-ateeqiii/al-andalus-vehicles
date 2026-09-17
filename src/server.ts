@@ -14,7 +14,17 @@ import { PUBLIC_VEHICLE_STATUSES } from './app/core/models/vehicle.model';
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
-const angularApp = new AngularNodeAppEngine();
+/**
+ * Vercel's edge sets these on every request it forwards to the function.
+ * Any `x-forwarded-*` header outside this list makes the engine log a warning
+ * and silently serve the client-rendered shell instead of SSR — a 200 with an
+ * empty `<app-root>` — so `x-forwarded-for` has to be here even though the
+ * URL is never built from it. `x-forwarded-prefix` is left out: Vercel does
+ * not set it, so trusting it would only trust the caller.
+ */
+const angularApp = new AngularNodeAppEngine({
+  trustProxyHeaders: ['x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port', 'x-forwarded-for'],
+});
 
 const SITEMAP_APP_NAME = 'al-andalus-sitemap';
 
