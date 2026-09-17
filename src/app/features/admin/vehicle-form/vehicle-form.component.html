@@ -36,6 +36,20 @@
           <p class="text-xs text-muted">المخفية والمباعة مش بتظهر للزباين في الموقع.</p>
         </div>
 
+        <label class="flex cursor-pointer items-start gap-3 sm:col-span-2">
+          <input
+            type="checkbox"
+            class="mt-1 size-5 shrink-0 accent-gold"
+            formControlName="isFeatured"
+          />
+          <span class="flex flex-col">
+            <span class="text-sm text-cream">مميزة</span>
+            <span class="text-xs text-muted">
+              العربيات المميزة بتظهر في «أبرز العربيات» في الصفحة الرئيسية، لو متاحة أو محجوزة.
+            </span>
+          </span>
+        </label>
+
         <div class="flex flex-col gap-1.5">
           <label class="text-sm text-cream" for="brand">الماركة</label>
           <input id="brand" class="field-input" formControlName="brand" placeholder="شيفروليه" />

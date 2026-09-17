@@ -23,9 +23,10 @@ const STATUS_ORDER: readonly VehicleStatus[] = ['available', 'reserved', 'sold',
 /**
  * Storyboard panel 04's العربيات screen.
  *
- * The status `<select>` saves straight from the row — changing a vehicle to
- * مباعة is the single most common thing the owner does, and making them open
- * a form for it would be the wrong shape. Deleting, which cannot be undone,
+ * The status `<select>` and the مميزة star save straight from the row —
+ * marking a vehicle مباعة and choosing what the home page features are the
+ * things the owner changes most, and making them open a form for either would
+ * be the wrong shape. Deleting, which cannot be undone,
  * always goes through a dialog that names the vehicle.
  */
 @Component({
@@ -143,13 +144,38 @@ export class AdminVehiclesComponent {
     this.markSaving(vehicle.id, true);
     // Optimistic: the select already shows the new value, so the list should
     // agree with it while the write is in flight.
-    this.patchLocal(vehicle.id, next);
+    this.patchLocal(vehicle.id, { status: next });
 
     try {
       await this.vehicleService.updateStatus(vehicle.id, next);
       this.toast.success(`تم تغيير حالة «${this.titleOf(vehicle)}» لـ ${this.statusLabels[next]}`);
     } catch {
-      this.patchLocal(vehicle.id, vehicle.status);
+      this.patchLocal(vehicle.id, { status: vehicle.status });
+      this.toast.error('حصلت مشكلة، حاول تاني');
+    } finally {
+      this.markSaving(vehicle.id, false);
+    }
+  }
+
+  /** Same shape as `changeStatus`: optimistic, rolled back on failure. */
+  protected async toggleFeatured(vehicle: Vehicle): Promise<void> {
+    if (this.isSaving(vehicle.id)) {
+      return;
+    }
+
+    const next = !vehicle.isFeatured;
+    this.markSaving(vehicle.id, true);
+    this.patchLocal(vehicle.id, { isFeatured: next });
+
+    try {
+      await this.vehicleService.setFeatured(vehicle.id, next);
+      this.toast.success(
+        next
+          ? `«${this.titleOf(vehicle)}» هتظهر في أبرز العربيات`
+          : `«${this.titleOf(vehicle)}» مش هتظهر في أبرز العربيات`,
+      );
+    } catch {
+      this.patchLocal(vehicle.id, { isFeatured: vehicle.isFeatured });
       this.toast.error('حصلت مشكلة، حاول تاني');
     } finally {
       this.markSaving(vehicle.id, false);
@@ -186,9 +212,9 @@ export class AdminVehiclesComponent {
     }
   }
 
-  private patchLocal(id: string, status: VehicleStatus): void {
+  private patchLocal(id: string, patch: Partial<Pick<Vehicle, 'status' | 'isFeatured'>>): void {
     this.all.update(
-      (list) => list?.map((item) => (item.id === id ? { ...item, status } : item)) ?? null,
+      (list) => list?.map((item) => (item.id === id ? { ...item, ...patch } : item)) ?? null,
     );
   }
 

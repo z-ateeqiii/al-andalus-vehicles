@@ -88,6 +88,7 @@
             <th class="px-4 py-3 text-start font-medium">العربية</th>
             <th class="px-4 py-3 text-start font-medium">النوع</th>
             <th class="px-4 py-3 text-start font-medium">السعر</th>
+            <th class="px-4 py-3 text-start font-medium">مميزة</th>
             <th class="px-4 py-3 text-start font-medium">الحالة</th>
             <th class="px-4 py-3 text-start font-medium">
               <span class="sr-only">إجراءات</span>
@@ -120,6 +121,20 @@
 
               <td class="px-4 py-3 text-muted">{{ categoryLabels[vehicle.category] }}</td>
               <td class="price px-4 py-3">{{ vehicle.price | egpPrice }}</td>
+
+              <td class="px-4 py-3">
+                <button
+                  type="button"
+                  class="flex size-11 items-center justify-center rounded-control transition disabled:opacity-50"
+                  [class]="vehicle.isFeatured ? 'text-gold' : 'text-muted hover:text-gold'"
+                  [disabled]="isSaving(vehicle.id)"
+                  [attr.aria-pressed]="!!vehicle.isFeatured"
+                  [attr.aria-label]="'مميزة: ' + titleOf(vehicle)"
+                  (click)="toggleFeatured(vehicle)"
+                >
+                  <app-icon name="star" [size]="20" [fill]="!!vehicle.isFeatured" />
+                </button>
+              </td>
 
               <td class="px-4 py-3">
                 <select
@@ -200,6 +215,22 @@
                 <option [value]="option">{{ statusLabels[option] }}</option>
               }
             </select>
+
+            <button
+              type="button"
+              class="flex size-11 shrink-0 items-center justify-center rounded-control border transition disabled:opacity-50"
+              [class]="
+                vehicle.isFeatured
+                  ? 'border-gold/60 text-gold'
+                  : 'border-elevated/60 text-muted hover:text-gold'
+              "
+              [disabled]="isSaving(vehicle.id)"
+              [attr.aria-pressed]="!!vehicle.isFeatured"
+              [attr.aria-label]="'مميزة: ' + titleOf(vehicle)"
+              (click)="toggleFeatured(vehicle)"
+            >
+              <app-icon name="star" [size]="18" [fill]="!!vehicle.isFeatured" />
+            </button>
 
             <a
               class="flex size-11 shrink-0 items-center justify-center rounded-control border border-elevated/60 text-muted transition hover:text-gold"

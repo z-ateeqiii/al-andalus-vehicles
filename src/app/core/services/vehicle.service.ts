@@ -142,6 +142,16 @@ export class VehicleService {
     });
   }
 
+  /** The مميزة toggle on each admin row saves through this. */
+  async setFeatured(id: string, isFeatured: boolean): Promise<void> {
+    const { db, fs } = await loadFirestore();
+
+    await fs.updateDoc(fs.doc(db, COLLECTION, id), {
+      isFeatured,
+      updatedAt: fs.serverTimestamp(),
+    });
+  }
+
   async remove(id: string): Promise<void> {
     const { db, fs } = await loadFirestore();
     await fs.deleteDoc(fs.doc(db, COLLECTION, id));
