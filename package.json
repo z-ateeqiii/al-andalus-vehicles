@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "ng build && node scripts/vercel-output.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:al-andalus": "node dist/al-andalus/server/server.mjs",
