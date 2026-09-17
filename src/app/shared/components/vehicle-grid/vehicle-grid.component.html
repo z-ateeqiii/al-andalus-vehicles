@@ -1,7 +1,4 @@
-<div
-  class="vehicle-grid"
-  [attr.aria-busy]="vehicles() === null ? 'true' : null"
->
+<div class="vehicle-grid" [attr.aria-busy]="vehicles() === null ? 'true' : null">
   @if (vehicles(); as list) {
     @for (vehicle of list; track vehicle.id; let i = $index) {
       <app-vehicle-card
