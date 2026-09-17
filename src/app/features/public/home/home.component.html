@@ -1,6 +1,8 @@
 @if (settings(); as showroom) {
   <!-- ── Hero ─────────────────────────────────────────────────────────── -->
-  <section class="relative flex min-h-[30.5rem] flex-col overflow-hidden md:min-h-dvh">
+  <section
+    class="relative flex min-h-[30.5rem] flex-col overflow-hidden md:min-h-[min(100dvh,62.5vw)]"
+  >
     <!-- The picture is the background of the hero, on every width.
          Its height is sized in rem, never from svh/vh/dvh — Safari's URL bar
          changes those mid-scroll, and an earlier version that sized the band
@@ -9,7 +11,13 @@
          4:5 from the north, so the truck sits whole across the top and the
          text has dark ground below it — storyboard panel 05. 30.5rem is that
          padded frame's height at phone widths, so the picture lands exactly
-         where the layout expects it. -->
+         where the layout expects it.
+         On desktop the section fills the viewport but never grows past a
+         1.6:1 frame (62.5vw): a taller window made object-cover crop the
+         sides, and at 1440×1400 half the truck was gone and its grille sat
+         under the headline. The photo keeps the vehicle on its left, so any
+         side crop that remains is taken mostly from the right, behind the
+         text and the scrim. -->
     <div class="absolute inset-0">
       @if (showroom.heroImageUrl) {
         <app-cloud-image
@@ -20,7 +28,7 @@
           [priority]="true"
           [mobileTransform]="heroMobileTransform"
           [mobileMedia]="heroMobileMedia"
-          imgClass="h-full w-full object-cover"
+          imgClass="h-full w-full object-cover md:object-[30%_center]"
           class="block h-full w-full"
         />
       }
