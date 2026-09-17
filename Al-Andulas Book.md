@@ -117,7 +117,7 @@ The threat the key does expose is **quota abuse**: someone can make
 unauthenticated reads against your project and burn your free-tier reads. The
 mitigation is Google Cloud Console → Credentials → the "Browser key
 (auto created by Firebase)" → **Application restrictions → HTTP referrers**,
-restricted to your production domain. *This has not been done on this project.*
+restricted to your production domain. *Nothing in the repository or the session record shows this being done — check the console before assuming it has.*
 It is listed in Part 5.
 
 The rule to carry forward: **if a value must reach the browser to work, it is
@@ -869,7 +869,7 @@ https://api.cloudinary.com/v1_1/qzbv9p86/image/upload
 So the realistic threat is **quota abuse, not data compromise** — the same shape
 of risk as the Firebase API key in §0.2.
 
-**Mitigations that exist and are not applied here:**
+**Mitigations that exist, none of which the repository or session record shows being applied:**
 
 - Settings → Security → **restrict delivery/upload by referrer domain**.
 - A **rate limit** on the preset.
@@ -2098,7 +2098,7 @@ No hedging.
   clean up was thrown away. A single signed-upload endpoint fixes both. §0.17,
   §2.6, Part 5.
 - **No API-key referrer restriction and no Cloudinary referrer restriction.**
-  Both are console settings costing minutes. Neither is applied. §0.2, §0.15.
+  Both are console settings costing minutes. Neither is evidenced anywhere in the repository or session record. §0.2, §0.15.
 - **The hand-rolled `TransferState` bridge.** Not wrong given the constraints,
   but it is 200 lines of infrastructure carrying a known-incorrect `Timestamp`
   substitute, written to work around a choice made elsewhere. The cost was
@@ -3545,3 +3545,638 @@ would have found this in under a minute. It was never scheduled, and this defect
 is what that omission cost.
 
 ---
+
+## PART 4 — Performance, measured
+
+Every number in this part comes from two measurement sessions on 2026-09-16:
+session 4 (bundle splitting, commits `13f61b9` and `bdddb97`) and session 5
+(the lazy LCP image, `a3a171d`). No performance measurement was taken after
+that. The admin build, the Cloudinary images and all three hero redesigns came
+later and **have not been measured**. §4.5 explains what that leaves unproven.
+
+---
+
+### 4.1 How the numbers were taken
+
+The runner is [`scripts/dev/lighthouse-run.mjs`](scripts/dev/lighthouse-run.mjs),
+added in `f3a5ec1`. Its settings, verbatim:
+
+```js
+/** Lighthouse's own mobile 4G preset: 1.6 Mbps down, 150ms RTT, 4x CPU. */
+const config = {
+  extends: 'lighthouse:default',
+  settings: {
+    formFactor: 'mobile',
+    screenEmulation: { mobile: true, width: 412, height: 823, deviceScaleFactor: 1.75, disabled: false },
+    throttlingMethod: 'simulate',
+    throttling: {
+      rttMs: 150,
+      throughputKbps: 1638.4,
+      requestLatencyMs: 562.5,
+      downloadThroughputKbps: 1638.4,
+      uploadThroughputKbps: 675,
+      cpuSlowdownMultiplier: 4,
+    },
+    onlyCategories: ['performance'],
+  },
+};
+```
+
+It runs each path several times and reports the **median**. The reason is in
+the file header:
+
+> a single Lighthouse run on a laptop moves by 10-20% on its own, which is wide
+> enough to invent an improvement that is not there.
+
+Both sessions used five runs. In session 4 the old and new builds were **served
+side by side at the same time** on two ports, so both sets of runs saw the same
+machine load. Measuring "before" and then "after" an hour apart would compare
+two different states of the laptop as much as two builds.
+
+Two properties of the setup matter for everything below:
+
+- **`throttlingMethod: 'simulate'`.** Lighthouse loads the page unthrottled and
+  then *models* what a 4G phone would have seen. The numbers come from that
+  model, not from a real slow connection. They are good for comparing two builds
+  and not reliable as absolute predictions.
+- **The local server does not compress.** [`src/server.ts`](src/server.ts) has no
+  compression middleware, and `compression` is not in `package.json`. See §4.5.
+
+---
+
+### 4.2 The LCP phase model
+
+Largest Contentful Paint is one number, but it is the sum of four consecutive
+phases. Each phase has a different cause and a different fix, so the single
+number alone doesn't tell you what to change.
+
+```
+navigation start
+│
+├── TTFB ─────────── until the first byte of the HTML arrives
+│
+├── Load Delay ───── until the browser *starts* requesting the LCP resource
+│
+├── Load Time ────── until that resource has finished downloading
+│
+└── Render Delay ─── until the element is actually painted
+                                                         = LCP
+```
+
+| Phase | What makes it long | What shortens it |
+|---|---|---|
+| TTFB | Slow server, far-away region, heavy SSR work | Caching, a closer region, less work per request |
+| Load Delay | The resource is found late: lazy, set from JS, or buried in CSS | `preload`, no `lazy`, `fetchpriority="high"`, put it in the HTML |
+| Load Time | The resource is big, or the connection is slow | Smaller files, `f_auto`, a correct `srcset` |
+| Render Delay | The resource is ready but the main thread is busy, or rendering is blocked | Less JS on the main thread, smaller hydration cost, no render-blocking resources |
+
+Text LCP elements have no load phases. Their LCP is TTFB plus render delay,
+which is why `/` and `/vehicles` behaved so differently in session 4 (§4.3).
+
+This project's real phase numbers, for the LCP element on `/vehicles` (the first
+vehicle card image), across three builds:
+
+| Phase | Before splitting | After splitting (`13f61b9`+`bdddb97`) | Session-5 baseline | After lazy fix (`a3a171d`) |
+|---|---|---|---|---|
+| TTFB | — | — | 458 ms | 456 ms |
+| Load Delay | 4163 ms | 1794 ms | 4226 ms | **335 ms** |
+| Load Time | 2221 ms | 270 ms | 2537 ms | **176 ms** |
+| Render Delay | 560 ms | **5604 ms** | 539 ms | **3827 ms** |
+| **LCP** | 7777 ms | 8023 ms | 8401 ms | **5631 ms** |
+
+TTFB was not recorded in the session-4 report, so those cells are blank rather
+than guessed.
+
+Look at the "Render Delay" row. Every improvement in the network phases was
+partly given back as render delay. That pattern runs through the rest of this
+part.
+
+Note also that the session-5 baseline (8401 ms) is not the session-4 result
+(8023 ms), even though no code changed between them that affects `/vehicles`.
+The two sessions ran at different times on the same laptop. **That 5% gap is the
+measurement noise floor**, and any difference smaller than it should be read as
+no difference.
+
+---
+
+### 4.3 Bundle splitting: FCP improved, TBT got worse, and it was still right
+
+#### What changed
+
+Before `13f61b9`, `firebase.config.ts` imported the Firestore and Auth SDKs
+eagerly, and `AnalyticsService` is injected by the public layout, so both SDKs
+were in the initial chunk on every page. The commit moved every SDK import behind
+`import()` (§0.7).
+
+From the commit message:
+
+> Initial chunk 959.24 kB -> 415.40 kB raw, 243.90 kB -> 106.69 kB transfer,
+> which also puts it back under the 500 kB budget.
+
+Firestore (557.97 kB raw) and Auth (128.83 kB raw) became separate lazy chunks.
+The budget is the one in [`angular.json`](angular.json):
+`"maximumWarning": "500kB"` for the initial bundle.
+
+#### The measurements
+
+Median of 5, mobile 4G, both builds served at once:
+
+| `/` | before | after | change |
+|---|---|---|---|
+| Performance score | 61 | 73 | +12 |
+| LCP | 7279 ms | 4613 ms | −2666 ms (−37%) |
+| **TBT** | **54 ms** | **161 ms** | **+107 ms** |
+| FCP | 6017 ms | 3466 ms | −2551 ms (−42%) |
+
+| `/vehicles` | before | after | change |
+|---|---|---|---|
+| Performance score | 61 | 67 | +6 |
+| LCP | 7777 ms | 8023 ms | +246 ms (within noise) |
+| **TBT** | **62 ms** | **148 ms** | **+86 ms** |
+| FCP | 5870 ms | 3536 ms | −2334 ms (−40%) |
+
+Total JavaScript downloaded went **up**, from 902 kB to 949 kB. Splitting code
+into chunks adds some duplication and loader code, about 47 kB here.
+
+The session-4 instruction was: *"If the refactor doesn't measurably improve LCP
+or TBT, say so — don't keep it for its own sake."* Measured against that: TBT got
+worse on both pages, and LCP improved on one page only. That is a partial pass,
+and the session report said so.
+
+#### Why FCP improved
+
+Before the split, the browser had to download, parse and run about 960 kB of
+JavaScript before it could paint the first frame. Firestore was part of that
+work, and on a 4× slower CPU the work happened *before* first paint. Moving
+Firestore out of the initial chunk removed it from the path to first paint, so
+FCP dropped by about 2.5 seconds on both pages.
+
+The session-4 trace confirmed the order: **first paint at 452 ms, Firestore chunk
+requested at 517 ms**, after the paint, not before it.
+
+#### Why TBT got worse
+
+Total Blocking Time is not "all the blocking work on the page". It counts only
+long tasks (anything over 50 ms, minus the first 50 ms) that happen **between
+FCP and Time to Interactive**.
+
+Before the split, the Firestore work ran *before* FCP, outside that window, so
+TBT did not count it at all, while it delayed FCP by 2.5 seconds. After the
+split, FCP happens early, and the Firestore chunk is parsed later, *inside* the
+window. The work didn't grow. It moved into the part of the timeline that TBT
+measures.
+
+This is why the two metrics moved in opposite directions. It is mostly a
+bookkeeping change, and the total JS increase shows that no work was actually
+removed.
+
+#### The part the commit message doesn't show
+
+The lazy import **on its own made `/` worse**, not better. With only `13f61b9`,
+LCP on `/` was **7703 ms**, up from 7279 ms. The visit counter was the one public
+caller that needed Firestore, and it ran right after render, so the 558 kB chunk
+now downloaded and parsed exactly while the page was hydrating.
+
+`bdddb97` fixed that by waiting for `requestIdleCallback` before loading the SDK
+(with a 5-second timeout and a 2-second `setTimeout` fallback where the API is
+missing, as in `analytics.service.ts`). That change is what took `/` from
+7703 ms to 4613 ms.
+
+The general point: **splitting code only helps if the split-off code is also
+loaded later.** A lazy chunk that is requested immediately is an eager chunk with
+an extra network request.
+
+#### Why `/` improved and `/vehicles` didn't
+
+At the time of session 4 the two pages had different LCP elements.
+
+- On `/`, the LCP element was **hero text**. Text needs no download, so its LCP
+  depends on when the main thread can render it. Removing 550 kB from the path to
+  first render moved it directly.
+- On `/vehicles`, the LCP element was a **card image**. The split cut its load
+  delay (4163 → 1794 ms) and load time (2221 → 270 ms) exactly as intended, but
+  render delay rose from 560 ms to 5604 ms. The image was ready long before the
+  busy main thread could paint it, and the net result was no change.
+
+(The load-time drop from 2221 to 270 ms is larger than a smaller bundle alone
+would explain. Under simulated throttling, a smaller initial download frees the
+modelled connection sooner. It is a modelling effect as much as a real one; see
+§4.5.)
+
+#### Why it was still the right call
+
+The decision was to keep the split, for three reasons that don't rely on
+Lighthouse's arithmetic:
+
+1. **Every visitor downloads 107 kB of JavaScript before anything runs, instead
+   of 244 kB.** That is a transfer-size fact, not a model output, and it matters
+   most on the prepaid mobile data plans common among this site's audience.
+2. **FCP improved about 40% on both pages**, well above the noise floor.
+3. **TBT stayed under 200 ms**, Lighthouse's "good" threshold for mobile. It got
+   worse, but it didn't cross the line where it starts to count against the page.
+
+It is still a judgement call. The session report offered
+`git revert 13f61b9 bdddb97` as a clean undo, and that remains true.
+
+---
+
+### 4.4 Fixing the lazy LCP image moved the bottleneck; it didn't remove it
+
+Part 3 §3.6 covers the defect. This section is about what the numbers say
+afterwards.
+
+Session 5, `/vehicles`, median of 5:
+
+| | before | after | change |
+|---|---|---|---|
+| Performance score | 68 | 71 | +3 |
+| **LCP** | **8401 ms** | **5631 ms** | **−2770 ms (−33%)** |
+| TBT | 113 ms | 119 ms | +6 ms (noise) |
+| FCP | 3326 ms | 3317 ms | no change |
+
+With the phases from §4.2:
+
+```
+before   TTFB 458 │ Load Delay 4226 ─────────────── │ Load 2537 ──────── │ Render 539 ─ │  = 8401
+after    TTFB 456 │ 335 │ 176 │ Render Delay 3827 ────────────────────────── │            = 5631
+```
+
+The lazy attribute was worth about 3.9 seconds of load delay. Removing it let the
+image start downloading almost immediately and finish in 176 ms. **But render
+delay went from 539 ms to 3827 ms.** The image now arrives long before the page
+can paint it.
+
+What that means:
+
+- **LCP on `/vehicles` is now limited by the main thread, not by the network.**
+  Another network optimisation (preconnect, a smaller image, a CDN change) cannot
+  improve this number much, because none of them shortens render delay.
+- The main thread is busy with the initial JavaScript: parsing and running the
+  415 kB chunk under a 4× CPU slowdown, then hydrating the page. The phase data
+  shows that the paint waits. **The session didn't record a trace attributing the
+  delay to specific tasks**, so "hydration is the cause" is the likely
+  explanation, not a proven one.
+- The next lever is less JavaScript on the main thread before the first paint of
+  the grid: smaller hydration (for example `@defer` on the filter panel, or
+  incremental hydration), or removing Firestore from the public site entirely
+  (CLAUDE.md §7, the REST visit counter). None of these was measured.
+
+The general lesson from §3.6 applies: **once a fix works, check which phase is
+now largest, because that phase needs a different kind of fix.**
+
+---
+
+### 4.5 What these numbers do not prove
+
+Performance numbers are easy to over-read. Everything below limits what Part 4
+can claim.
+
+**The test server did not compress.** Lighthouse saw 902 kB and 949 kB of
+JavaScript on the wire. Vercel serves the same files gzip- or brotli-compressed,
+closer to the 244 kB and 107 kB transfer sizes the build reports. So the
+absolute download times are pessimistic, and **the FCP improvement will be
+smaller in production** than measured here, because the bytes it removed are
+cheaper over a compressed connection. The direction of the change holds, but the
+size is overstated.
+
+**TTFB is not production TTFB.** 458 ms is Lighthouse's model of a 150 ms-RTT
+connection to a local server. Production adds a Vercel function (possibly a cold
+start) and a Firestore round trip from Vercel's region to the Firestore region
+(§0.3). Neither was measured. On a cold start, TTFB could plausibly exceed every
+other phase combined.
+
+**The images were placeholders.** Sessions 4 and 5 both ran before the first
+Cloudinary upload (session 6). Every vehicle and hero image was a small
+`placehold.co` PNG from an external host. The 176 ms load time in §4.4 is the
+load time of a placeholder, not of a Cloudinary-transformed photograph of a truck.
+
+**Nothing after session 5 was measured.** That includes:
+
+- the admin build (it is lazy and client-rendered, so it shouldn't affect public
+  pages, but that was not checked);
+- the real Cloudinary images and their `srcset`;
+- the art-directed mobile hero with two `preload` links (`139a937` onward);
+- the third category section on `/vehicles` (`8687e3c`);
+- the footer's new dependency on `settings/showroom` (`da6cf43`).
+
+Some of these could have regressed LCP on `/` specifically. The hero changed
+three times after its last measurement.
+
+**Simulated throttling is a model.** It is consistent, which makes it good for
+comparing builds, but it isn't a phone. A mid-range Android on a real Egyptian 4G
+network behaves differently: variable latency, background load, thermal limits.
+
+**One machine, one browser engine.** All runs used headless Chrome on the same
+Windows laptop. Safari (the browser in §3.9) was never measured.
+
+**There is no field data.** Chrome UX Report data needs real traffic, which the
+site didn't have. Every number here is lab data. Google ranks on field data.
+
+**Only two pages.** The vehicle details page, the page that carries the WhatsApp
+button, was never run through Lighthouse.
+
+What the numbers *do* support:
+
+- The initial transfer size fell from 244 kB to 107 kB. That comes from the build
+  output, not from a model.
+- The lazy LCP defect cost about 3.9 seconds of load delay under simulated 4G.
+  The size of that effect is far beyond the noise.
+- On `/vehicles`, after `a3a171d`, the main thread is the limiting factor, not the
+  network.
+- Code splitting shifted JavaScript work past first paint rather than removing
+  it.
+
+To make these claims about production, the next measurement should be taken
+against the deployed Vercel URL, on the details page as well as `/` and
+`/vehicles`, with a performance trace saved for the render-delay analysis.
+
+---
+
+## PART 5 — What is still wrong
+
+This part lists what a careful reviewer would find. It is ordered by
+consequence, not by how easy each item is to fix.
+
+---
+
+### 5.1 What a senior reviewer would flag first
+
+**1. There are no tests.** `package.json` defines `"test": "ng test"`. The
+repository contains **zero** `.spec.ts` files. Every correctness claim in this
+book comes from manual or scripted checks of the running app, and none of it runs
+again automatically.
+
+This matters more than usual here, because several Part 3 bugs are exactly the
+kind a small test catches:
+
+| Bug | The test that would have caught it |
+|---|---|
+| §3.2 guard | A guard test: sign in, then navigate. About 15 lines. |
+| §3.4 pipe | A component test rendering a card with `priceOnRequest: true`. |
+| §3.7 `NaN` | A unit test for `countByCategory` with one vehicle per category. |
+| §3.1 `PendingTasks` | An SSR test asserting the rendered HTML contains a vehicle title. |
+
+The biggest gap is the **security rules**. `firestore.rules` is the only security
+boundary in the system (§2.1), and it has no tests. The Firebase emulator
+supports rules unit tests (`@firebase/rules-unit-testing`) that check things like
+"an anonymous client cannot set `views` to 2" or "a signed-in user without an
+`admins` doc cannot create a vehicle". Every claim about the rules in §0.8 is
+based on reading them, not on running them.
+
+**2. Image uploads are open to anyone, and the IDs needed to clean up are thrown
+away.** §0.15, §0.17, §2.6. Anyone can upload to `qzbv9p86` with the public
+preset. Every uploaded asset's `public_id` is dropped, so deleted vehicles leave
+their images in Cloudinary permanently, and replacing the hero leaves the old
+image behind too. The fix is one signed-upload endpoint and a `publicIds` field
+on `Vehicle`. That needs a server, which this project doesn't have.
+
+**3. Vehicle writes are not validated on the server.** §2.4. The rule for
+`vehicles` checks *who* is writing, never *what* they write. Any signed-in admin
+(or any code running with that session) can store a malformed document, and
+`toVehicle()` has to defend the read path against it. That's acceptable with one
+trusted writer and becomes a real problem as soon as there are two.
+
+**4. The README is still the Angular CLI default.** [`README.md`](README.md) is
+the 59-line file `ng new` generates ("This project was generated using Angular
+CLI version 21.2.24…"). The original brief's last section, §17, required a
+handover README covering routes, collections, environment values, Cloudinary and
+Firebase setup, run and deploy commands, and "the exact list of real showroom
+values the owner still needs to supply." **That README was never written.** Part
+0 of this book covers most of it, but this book is internal, and the owner (or
+whoever takes over the project) needs its own document.
+
+**5. Missing and sold vehicles return HTTP 200 (soft 404s).**
+`VehicleService.getPublic()` returns `null` for a missing, sold or hidden vehicle,
+and the details page shows its empty state. Nothing in `src/app` sets a response
+status: there's no `RESPONSE_INIT` and no `status = 404`. Nothing sets a
+`noindex` robots meta tag either. The results:
+
+- Google indexes sold vehicles' URLs as live pages with "not found" content,
+  which Search Console reports as soft 404s.
+- A vehicle link the owner pasted into WhatsApp before the sale still unfurls
+  with whatever preview the platform cached, then opens an empty page.
+
+The fix is to inject `RESPONSE_INIT` on the server, set `status: 404` when the
+vehicle is `null`, and add `noindex`.
+
+**6. The API-key and Cloudinary referrer restrictions are unverified.** §0.2,
+§0.15. Both are console settings that take minutes. Nothing in the repository or
+the session record shows either was applied.
+
+---
+
+### 5.2 Known debt already recorded in CLAUDE.md
+
+[`CLAUDE.md`](CLAUDE.md) §7 lists two items. They are repeated here with their
+current status.
+
+**The `transfer-codec.ts` timestamp substitute.** Transferred `createdAt` and
+`updatedAt` values are `TransferredTimestamp` instances, not SDK `Timestamp`s.
+`instanceof Timestamp` is false for them and `toInstant()` doesn't exist. CLAUDE.md
+calls this *"safe while nothing reads `createdAt` / `updatedAt` on a transferred
+document."* That is still true today, as far as the templates show, but nothing
+enforces it. The first person to write `vehicle.createdAt.toDate()` in a public
+template will get the substitute and it will work. The first to write
+`instanceof Timestamp`, or to pass a transferred vehicle back into a Firestore
+write, will not. There is no test for this either (§5.1 item 1).
+
+Note that `toVehicle()` in `vehicle.service.ts` *does* use
+`data['createdAt'] instanceof fs.Timestamp`. That's safe, because it runs on
+freshly read Firestore data and never on transferred data, but it's exactly the
+kind of check that would silently fail if someone reused it on the client.
+
+**The visit counter keeps Firestore on the public site.** About 558 kB (raw) is
+downloaded by every first-time visitor to add 1 to two counters. `bdddb97` pushed
+the download past first paint, but §4.3 shows that the parse cost still lands in
+the TBT window. A `fetch` to the Firestore REST `commit` endpoint with an
+`increment` field transform would remove the SDK from the public site entirely.
+Not done.
+
+---
+
+### 5.3 Defects found while writing this book
+
+These were found by reading the code for this book. None has been fixed. This
+book changes no source file.
+
+**A misplaced doc comment in `environment.ts`.** Two JSDoc blocks sit on top of
+each other above `siteUrl`:
+
+```ts
+  /**
+   * Fallback only. The live number comes from `settings/showroom` so the owner
+   * can change it without a deploy — never read this from a component.
+   */
+  /**
+   * Last-resort origin for canonical URLs and the sitemap. …
+   */
+  siteUrl: 'https://al-andalus-vehicles.vercel.app',
+```
+
+The first block describes `whatsappNumber`, which comes later in the file with no
+comment of its own. Editors and TypeScript attach only the nearest JSDoc, so the
+warning *"never read this from a component"* is attached to nothing. It is the
+one rule about `whatsappNumber` that CLAUDE.md treats as a hard requirement.
+
+**The `UploadedImage` JSDoc is wrong.** It says *"Only `secureUrl` and `publicId`
+are stored in Firestore."* `publicId` isn't stored anywhere (§0.17).
+
+**`srcset` requests upscaled images.** `CloudinaryService.transform()` adds
+`w_N` without `c_limit`, so a request for `w_1600` from a narrower source
+upscales it. §0.14 shows the measured result: a larger file with no added
+detail. The fix is to add `c_limit` to the transformation string.
+
+**The vehicle card depends on an unenforced data rule.** §3.4. The card shows
+`vehicle().price | egpPrice` and relies on `priceOnRequest: true` always meaning
+`price === null`. The form keeps that rule. Firestore doesn't. `seo.service.ts`
+and `whatsapp.service.ts` both check `priceOnRequest` explicitly; the card
+doesn't.
+
+**`/sitemap.xml` and `/robots.txt` trust the request's host header.** In
+[`src/server.ts`](src/server.ts), `originOf()` builds the origin from
+`x-forwarded-host` or `host`, and both routes are Express handlers registered
+*before* the Angular engine. As far as this file shows, those routes are not
+covered by the `security.allowedHosts` check from §0.19. A request with a forged
+host gets a sitemap full of URLs on the forged host. The sitemap response is
+marked `Cache-Control: public, max-age=600`. Vercel's CDN includes the host in
+its cache key, which probably limits this to the attacker's own response. That
+is an assumption about Vercel, not a verified fact. The fix is to validate the
+host against the same allowlist or use `environment.siteUrl`.
+
+**The sitemap query is a second copy of `listPublic()`.** `server.ts` creates a
+separate Firebase app (`al-andalus-sitemap`) and runs its own
+`where('status', 'in', …)` + `orderBy('createdAt', 'desc')` query. Any change to
+the public-visibility rule now has to be made in two places, and the second place
+is outside `src/app`.
+
+**Unhashed static files are cached for a year.** `express.static(browserDistFolder, { maxAge: '1y' })`
+applies to everything in the browser output, including `favicon.ico` and the five
+fonts under `public/fonts/`, which have fixed names. If a font file is ever
+replaced, returning visitors keep the old one for up to a year. On Vercel, static
+files may be served by the platform with its own headers rather than by this
+Express handler. Which one applies in production wasn't checked.
+
+**The daily analytics docs are written but never read.** Every visit writes to
+`analytics/daily_YYYY-MM-DD`. Nothing in `src/app` reads a daily doc; the
+dashboard reads only `analytics/total`. The daily IDs also use each *visitor's*
+local timezone (`dailyDocumentId()` uses `getFullYear()` / `getMonth()` /
+`getDate()`), so a daily breakdown built later would mix timezones. Right now
+this is one extra write per visit for data nobody uses.
+
+**The comments disagree on the SDK size.** `firebase.config.ts` says *"roughly
+460kB of Firestore and Auth"*, `transfer-codec.ts` says *"~460kB of Firestore"*,
+and CLAUDE.md §7 and `analytics.service.ts` say *"~550kB"*. The build reported
+557.97 kB raw for the Firestore chunk alone. The 460 figure is wrong.
+
+**CLAUDE.md is partly out of date.**
+- §5 *Images* still says `loading="lazy"` *"everywhere except the hero"*. Since
+  `a3a171d`, the first cards of the first grid section are eager, and the first
+  card has `fetchpriority="high"`.
+- §1 still describes the stock as *"نص نقل / ربع نقل pickups"*. `248c5f1` renamed
+  the label to ربع نقل and added a minibus category, which CLAUDE.md doesn't
+  mention.
+
+Because CLAUDE.md is loaded at the start of every session, stale statements in it
+are more dangerous than stale statements anywhere else: they get followed.
+
+**A leftover test upload in Cloudinary.** `al-andalus/e2c4bnvfv001wth5izij`,
+uploaded during the session-6 end-to-end check, was never deleted. It has to be
+removed from the Cloudinary console, because the app can't delete assets (§0.17).
+
+**Every admin failure shows the same message.** Every failed write shows
+`حصلت مشكلة، حاول تاني`. A permission failure (missing `admins/{uid}`, §0.20), a
+network failure and a malformed document all look identical to the owner. The
+Firebase error code is available in the `catch` block and is discarded.
+
+---
+
+### 5.4 Paths that were never exercised
+
+These are cases where the code may well be correct, but nobody has run it.
+
+- **A signed-in user who isn't an admin.** §2.3 describes what *should* happen
+  (the dashboard loads, stats show 0, every save fails with a generic toast).
+  Nobody has signed in with such an account.
+- **Firestore unreachable during SSR.** `transfer-cache.service.ts` releases its
+  pending task in `.finally()`, so a failed read shouldn't hang the render (§3.1).
+  The error-state path of a server-rendered page has never been triggered.
+- **An upload that fails or is cancelled partway.** `CloudinaryService.upload()`
+  handles `error` and `abort`, and the form has per-file progress. Nobody has
+  tested a dropped connection mid-upload, or pressing save while an upload is
+  still running.
+- **Two admin sessions editing the same vehicle.** `update()` uses `updateDoc`
+  with no version check. The last write wins silently. There's only one admin
+  today, but the owner using a phone and a laptop at once counts as two sessions.
+- **`npm run seed -- --force`.** It appends. Running it twice doubles the sample
+  inventory, and there's no teardown (§0.10).
+- **Production SSR on the live domain.** `allowedHosts` includes `.vercel.app`,
+  and the SSR checks in §0.19 were run locally. The session record doesn't show
+  the same `curl` check being run against the deployed URL. Adding a custom domain
+  without adding it to `allowedHosts` would silently fall back to client
+  rendering.
+- **The final mobile hero on a real phone.** §3.9 exists because emulation at
+  390×844 missed a real-iOS bug. The final version (`1e3da03`) was checked at
+  390×664 and 390×844, which is the right fix to the method, but still emulation.
+  The session record doesn't show a real-device check after it.
+- **Accessibility.** The spec requires focus rings, 44 px touch targets and
+  `role="status"` on toasts, and the code follows those rules. No automated
+  accessibility audit (axe, or Lighthouse's accessibility category, which the
+  runner turns off with `onlyCategories: ['performance']`) and no screen-reader
+  test was run.
+- **Browsers other than Chromium.** Every automated check used headless Chrome.
+  Safari was seen only through one user-provided screenshot. Firefox was never
+  used.
+
+---
+
+### 5.5 What the process got wrong
+
+Part 1 argues the phased approach worked. These are its weaknesses, stated as
+plainly.
+
+**No session had "look at everything" as its scope.** §3.10's footer placeholder
+stayed in place for nine sessions because each session was scoped to something
+else. A single scope-free walkthrough of the running site before handover would
+have caught it in a minute. None was scheduled.
+
+**Verification checked the targets it was given, and the targets were sometimes
+wrong.** 390×844 was the specified viewport, and it isn't what an iPhone shows
+(§3.9). The lesson isn't that the checks were weak. The checks were
+precise, and precision about the wrong viewport gave false confidence.
+
+**Placeholders were allowed without a way to track them.** CLAUDE.md §6 says to
+create "clearly-marked placeholders and keep going". The footer's placeholders
+were plain Arabic sentences, not marked in any way a tool could find (§3.10).
+The rule was reasonable. The follow-through was missing.
+
+**The brief's final section was never done.** §17's README was the last item in
+the specification, and it was skipped (§5.1 item 4).
+
+**Performance measurement stopped too early.** It ended at session 5, before real
+images, before the hero redesigns and before deployment. Part 4's claims are
+bounded by that.
+
+---
+
+### 5.6 Suggested order of work
+
+In rough order of value for effort, for whoever picks this up:
+
+1. **Write the handover README** (brief §17). Owner-facing; blocks handover.
+2. **Delete the leftover Cloudinary asset**, and **set referrer restrictions** on
+   the Firebase API key and in Cloudinary. Minutes each.
+3. **Fix the `environment.ts` and `UploadedImage` comments**, and bring
+   **CLAUDE.md** up to date. Minutes; stops future sessions acting on wrong
+   instructions.
+4. **Return 404 plus `noindex`** for missing and sold vehicles.
+5. **Add `c_limit`** to the delivery transformation.
+6. **Add Firestore rules tests** with the emulator, then unit tests for the guard,
+   `countByCategory` and the price pipe.
+7. **Validate the sitemap host** against the allowlist.
+8. **Measure again, against production**, including the details page, with a
+   saved trace.
+9. **Replace the visit counter with a REST `commit`** and remove Firestore from
+   the public bundle (CLAUDE.md §7).
+10. **Add a signed-upload endpoint and store `publicId`**, so deleting a vehicle
+    can delete its images. This is the first item that needs a server, and it's
+    where this project's serverless design runs out (§2.6, §2.9).
