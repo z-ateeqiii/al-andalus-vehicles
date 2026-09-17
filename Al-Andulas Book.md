@@ -2164,3 +2164,1384 @@ the balance flips — and it flips faster than it looks, because the first two o
 those are ordinary requests that a client would not expect to be architectural.
 
 ---
+
+## PART 3 — Every real bug, in depth
+
+Ten defects. Each is presented in the same six-part order: the symptom as it
+appeared, the mechanism at framework level, why it was invisible, the real diff,
+what would have happened in production, and the general class of bug.
+
+Two of the ten have no commit. §3.4 was caught before it was committed, and
+§3.8 was not a code defect at all. Both are included because omitting them would
+misrepresent what actually happened.
+
+---
+
+### 3.1 Missing `PendingTasks` — SSR shipped empty markup
+
+Commit `d7e53f3`. The most serious defect in the project.
+
+#### 1. Symptom
+
+A server-rendered route returned HTTP 200 with a fully-formed HTML shell —
+`<head>`, styles, layout chrome, the navbar, the footer — and **no vehicle data
+anywhere in the body**. The `<script id="ng-state">` block that carries
+`TransferState` was present and empty.
+
+In a browser, nothing looked wrong. Hydration ran, the client saw no transferred
+state, fetched from Firestore itself, and the page filled in. The defect was
+only visible to something that does not execute JavaScript.
+
+#### 2. Mechanism
+
+Angular's SSR does not render for a fixed duration. It renders, then **waits for
+the application to become stable**, then serialises the DOM. "Stable" means: no
+pending navigations, no pending `HttpClient` requests, no outstanding entries in
+`PendingTasks`.
+
+`PendingTasks` is the registry an app uses to say *"do not serialise yet, I am
+still working."* `HttpClient` registers itself there automatically. The router
+does too.
+
+**The Firebase SDK does not.** It is an ordinary third-party library issuing its
+own network calls through its own transport; Angular has no idea it exists. So
+the sequence was:
+
+1. The component calls `VehicleService.listPublic()`, which returns a `Promise`.
+2. The template renders with `vehicles()` still `null` — the skeleton branch.
+3. Angular checks for stability. Nothing is pending. The app is stable.
+4. Angular serialises the DOM — skeletons — and sends the response.
+5. Firestore answers a few hundred milliseconds later, into a request that has
+   already been closed. `transferState.set(...)` writes into an object nobody
+   will ever read.
+
+The `await` inside the component suspends *that function*. It does not suspend
+*the renderer*. Nothing connected the two.
+
+#### 3. Why it was invisible
+
+Every automated check passed, and passed correctly:
+
+- `ng build` — the code is type-correct. A `Promise` that resolves after
+  serialisation is not a type error.
+- The SSR bundle built. The server started. Routes returned 200.
+- Opening the page in a browser looked completely normal, because hydration
+  papered over it. The only artefact was a skeleton flash that reads as normal
+  loading.
+- Even `TransferState` code review passes: `transfer-cache.service.ts` reads as
+  a correct read-through cache. **The bug is the absence of a line**, and there
+  is no way to notice a line that was never written by reading the file.
+
+It was found by deliberately wiring a server-rendered route to a real Firestore
+read and looking at the **raw response body** — not the browser, not the bundle.
+
+#### 4. The fix
+
+```diff
++    // Holds the application "unstable" until the read resolves. Without this
++    // the server serialises the page before Firestore answers, and every
++    // server-rendered route ships empty markup with nothing in TransferState.
++    const taskDone = this.pendingTasks.add();
+     const request = read()
+       .then((value) => {
+         if (!this.isBrowser) {
+           this.transferState.set(stateKey, encodeForTransfer(value));
+         }
+         return value;
+       })
+       .finally(() => {
+         this.inFlight.delete(key);
++        taskDone();
+       });
+```
+
+Two lines. `pendingTasks.add()` returns a function; calling it removes the
+entry. It is placed in `.finally()` so a *rejected* read also releases stability
+— otherwise one Firestore error would hang the SSR render until it timed out,
+turning a data problem into an availability problem.
+
+#### 5. What would have happened in production
+
+This defect defeats the entire reason SSR exists in this project. CLAUDE.md §2:
+
+> SSR exists for Google indexing and for WhatsApp/Facebook link previews — the
+> owner pastes vehicle links into chats.
+
+Both would have failed silently:
+
+- **Googlebot** does render JavaScript, but on a deferred second pass with no
+  guaranteed timing. The first-pass index would have held pages with no vehicle
+  names, no prices, and no content — which is what ranking is computed from.
+- **WhatsApp, Facebook and Twitter link unfurlers do not execute JavaScript at
+  all.** They fetch the HTML, read the `og:` meta tags, and stop. The owner's
+  single most important sales action — pasting a vehicle link into a customer
+  chat — would have produced a bare URL with no image, no title and no price.
+
+And the failure is **invisible from inside**. The owner opens the link on their
+own phone, the page renders correctly, and they have no reason to suspect
+anything. The only signal would have been WhatsApp previews looking wrong, weeks
+later, with no obvious cause.
+
+#### 6. The general lesson
+
+**Class: async work invisible to the framework's lifecycle.**
+
+Any time a library performs I/O outside the framework's own primitives, the
+framework's notion of "done" no longer includes it. This is not Firebase-specific
+— the same hole opens with a raw `fetch`, a WebSocket handshake, a third-party
+analytics SDK, or any Promise created outside `HttpClient` during SSR.
+
+How to recognise it: ask **"what tells the renderer this work exists?"** If the
+answer is "nothing", the renderer will not wait. In Angular the fix is
+`PendingTasks`. In Next.js it is the `await` in a server component. In Nuxt it
+is `useAsyncData`. Every SSR framework has exactly one such mechanism, and any
+I/O that does not route through it is invisible.
+
+The corollary, stated as a rule: **verify SSR by reading the bytes the server
+sent, never by looking at the rendered page.** Hydration is specifically
+designed to make a broken server render indistinguishable from a working one.
+
+---
+
+### 3.2 The admin guard that signing in could never satisfy
+
+Commit `18d52c9`.
+
+#### 1. Symptom
+
+Enter correct credentials on `/admin/login`. The request succeeds — Firebase
+returns 200, no error is thrown, no error toast appears. The app navigates to
+`/admin/dashboard` and **immediately lands back on `/admin/login`**, with no
+error message.
+
+Repeating it produced the same result every time. The admin area was completely
+unreachable.
+
+#### 2. Mechanism
+
+The guard was:
+
+```ts
+const user = await auth.whenReady();
+return user !== null ? true : router.createUrlTree(['/admin/login']);
+```
+
+This reads as textbook. It is wrong because of what `whenReady()` means.
+
+From [`auth.service.ts`](src/app/core/auth/auth.service.ts), `whenReady()`
+returns `this.firstState` — a `Promise` created once in the constructor and
+resolved by the **first** `onAuthStateChanged` callback:
+
+```ts
+let settled = false;
+
+const unsubscribe = api.fa.onAuthStateChanged(api.auth, (user) => {
+  this.currentUser.set(user);
+  this.resolved.set(true);
+
+  if (!settled) {
+    settled = true;
+    resolve(user);          // ← resolves once, with whatever the FIRST state was
+  }
+});
+```
+
+So `whenReady()` answers **"has Firebase finished restoring a persisted
+session?"** — a one-time startup question. It does not answer "who is signed in
+right now."
+
+On a cold load with no stored session, the first callback fires with `null`. The
+Promise resolves with `null`. **A Promise's resolved value is permanent.** Every
+subsequent `await whenReady()` in that page's lifetime returns `null`, no matter
+how many users have signed in since.
+
+The sequence:
+
+1. Page loads. No session. `whenReady()` resolves `null`. Permanently.
+2. The user signs in. `signInWithEmailAndPassword` succeeds. The SDK's internal
+   state updates and `onAuthStateChanged` fires again — but `settled` is already
+   `true`, so the Promise is untouched.
+3. The app navigates to `/admin/dashboard`. The guard runs.
+4. `await auth.whenReady()` → `null`. Redirect to login.
+
+The guard could be satisfied only by arriving with a session already restored —
+which never happens on the navigation immediately following a sign-in.
+
+There was a second, smaller race stacked underneath: even a guard reading the
+signal could lose, because `onAuthStateChanged` fires asynchronously and the
+component navigates on the line after `signIn()` returns.
+
+#### 3. Why it was invisible
+
+- `ng build` passes. `whenReady(): Promise<User | null>` and the guard handles
+  both branches. Types are perfect.
+- No error is thrown or logged anywhere. Sign-in genuinely succeeded.
+- The guard's own logic is locally correct — "await readiness, then check the
+  user" is the right shape. The bug lives in the *semantics of a method defined
+  in another file*, and nothing at the call site hints at it.
+- It is 100% reproducible but only manifests through a **complete** flow: load
+  the page, sign in, navigate. Testing sign-in alone shows success. Testing the
+  guard with a restored session shows it working.
+
+It was found by doing the whole thing as a user would, with real credentials,
+after the admin login page was built.
+
+#### 4. The fix
+
+```diff
+-  const user = await auth.whenReady();
++  // whenReady() only answers "has the restored session been reported yet".
++  // It resolves once — with null on a cold load — so the answer to "who is
++  // signed in now" has to come from the signal, or signing in could never
++  // get past this guard.
++  await auth.whenReady();
+-  return user !== null ? true : router.createUrlTree(['/admin/login']);
++  return auth.isSignedIn() ? true : router.createUrlTree(['/admin/login']);
+```
+
+`whenReady()` is kept, but **only for timing** — its value is discarded. The
+answer comes from `isSignedIn()`, a `computed()` over a signal, which is always
+current.
+
+And in `signIn()`, closing the race:
+
+```ts
+// Publish immediately rather than waiting for onAuthStateChanged: the
+// caller navigates straight into a guarded route on the next line.
+this.currentUser.set(credential.user);
+this.resolved.set(true);
+```
+
+#### 5. What would have happened in production
+
+The owner could never log in. The admin area — the entire reason the project has
+a backend at all — would be unreachable from the moment of deploy. Vehicles
+could not be added, statuses could not be changed, the hero could not be swapped.
+The public site would work perfectly and be permanently frozen on whatever the
+seed script wrote.
+
+This one is at least loud. It would have been found within minutes of handover
+and it would have looked like a total failure of the deliverable.
+
+#### 6. The general lesson
+
+**Class: a one-shot Promise used as a continuous source of truth.**
+
+A `Promise` is a value that settles once. A signal, observable or store is a
+value that changes over time. Using the former where the latter is needed
+produces exactly this: correct behaviour on the first evaluation, permanently
+stale behaviour on every one after.
+
+Recognising it: **any `await someService.ready()` whose *return value* is then
+used as state is suspect.** Readiness and state are different questions.
+`whenReady()` is legitimately a Promise — "has startup finished" settles once and
+stays settled. `isSignedIn()` is legitimately a signal — it changes. The bug was
+conflating them.
+
+The same trap appears with `firstValueFrom(store.user$)` in RxJS code, with a
+memoised `getSession()` in React, and with any cached `Promise` holding a
+snapshot of mutable state. The fix is always the same shape: **await the
+Promise for its timing, read the current value from something live.**
+
+---
+
+### 3.3 The admin layout crashed on every page inside it
+
+Commit `641b52c`.
+
+#### 1. Symptom
+
+With the guard fixed (§3.2), every route behind it rendered **blank**. Not an
+error page, not a partial layout — nothing. `/admin/dashboard`,
+`/admin/vehicles`, `/admin/settings` all produced an empty document body with a
+runtime error in the console.
+
+`/admin/login` worked, because it sits outside the admin layout.
+
+#### 2. Mechanism
+
+`AdminLayoutComponent` derived its header title by walking to the deepest child
+route and reading `data['title']`:
+
+```ts
+private deepestTitle(): string {
+  let route = this.route;
+  while (route.firstChild) { route = route.firstChild; }
+  const title: unknown = route.snapshot.data['title'];
+  return typeof title === 'string' ? title : 'لوحة التحكم';
+}
+```
+
+This was called during the layout component's construction.
+
+An `ActivatedRoute` and its `snapshot` are not the same object with the same
+lifetime. The route *tree* is built as the router matches URL segments, so
+`firstChild` links exist early. But a child route's **`snapshot` is populated
+when that route is activated**, and activation proceeds parent-first: the layout
+component is constructed *before* its children are activated.
+
+So the loop walked down to the deepest `ActivatedRoute` — which existed — and
+read `.snapshot.data`, where `snapshot` was `undefined`. Reading `.data` on
+`undefined` throws `TypeError`.
+
+The throw happened in a **component constructor**. Angular has no recovery path
+there: the component is not created, so its template — which contains the
+`<router-outlet>` for every admin page — is never rendered. One unguarded
+property access took down the entire admin subtree.
+
+#### 3. Why it was invisible
+
+The commit message is explicit about it:
+
+> Never caught before because the guard redirected away from all of them.
+
+This is the important detail. §3.2 and §3.3 were **layered**: the guard bug
+meant no navigation ever reached the layout, so the layout bug could not fire.
+Fixing the first revealed the second, which had been present since `22c5b7a`
+("feat: admin layout with sidebar and header") — 41 commits earlier, since session 1.
+
+Beyond that:
+
+- `ng build` passes. `route.snapshot` is typed `ActivatedRouteSnapshot`, **not**
+  `ActivatedRouteSnapshot | undefined`. TypeScript believed it was always
+  present, because in the type definition it always is. This is a type lying
+  about a runtime lifecycle, and strict mode cannot help.
+- `data['title']` is an index signature returning `any`, so even the value read
+  was unchecked.
+- The pattern is common and appears in tutorials, where it usually runs inside a
+  `NavigationEnd` subscription — i.e. *after* activation — and is fine there.
+  Moving it into the constructor is what broke it, and nothing flags that.
+
+#### 4. The fix
+
+```diff
+-  private deepestTitle(): string {
+-    let route = this.route;
+-    while (route.firstChild) { route = route.firstChild; }
+-    const title: unknown = route.snapshot.data['title'];
+-    return typeof title === 'string' ? title : 'لوحة التحكم';
++  private deepestTitle(): string {
++    let current: ActivatedRoute | null = this.route;
++    let found = '';
++    while (current) {
++      const snapshot: ActivatedRouteSnapshot | undefined = current.snapshot;
++      const title: unknown = snapshot?.data?.['title'];
++      if (typeof title === 'string') { found = title; }
++      current = current.firstChild;
++    }
++    return found || 'لوحة التحكم';
+   }
+```
+
+Three changes, and all three matter:
+
+1. **`snapshot?.data?.['title']`** — tolerate an absent snapshot instead of
+   assuming one. Note that `snapshot` had to be explicitly annotated as possibly
+   `undefined`; without that annotation TypeScript would flag the `?.` as
+   unnecessary.
+2. **Keep the deepest route that actually declares a title**, rather than the
+   deepest route of any kind. The previous version read only the leaf, so a
+   deeper route without a `title` erased a parent's perfectly good one.
+3. **Walk the whole chain**, accumulating, instead of stopping at the bottom.
+
+#### 5. What would have happened in production
+
+The entire admin dashboard — a blank page. Every route, every time. The public
+site would be unaffected and look healthy, which makes it worse: the deploy
+appears successful.
+
+Combined with §3.2, the two bugs together mean the owner cannot log in, and if
+they somehow could, they would see nothing.
+
+#### 6. The general lesson
+
+**Class: reading lifecycle-dependent state before the lifecycle has reached it.**
+
+Two distinct lessons are stacked here.
+
+**First — a type is not a lifetime.** `ActivatedRoute.snapshot` is typed
+non-nullable because it is non-null *once the route is activated*. The type
+system has no vocabulary for "after activation", so it states the
+steady-state truth and leaves the transient one undocumented. This is endemic:
+`@ViewChild` before `ngAfterViewInit`, `nativeElement` before the view exists,
+a `@Input()` inside a constructor. In every case the type says the value is
+there and the runtime disagrees. **When a framework type describes something
+that gets populated, find out *when*.**
+
+**Second — bugs queue behind other bugs.** §3.3 had been in the layout since
+`22c5b7a`, 41 commits earlier, and §3.2 hid it by redirecting every attempt to
+reach a page inside the layout. Fixing a bug that was blocking a code path does not verify that path;
+it merely makes it reachable for the first time. **After fixing anything that
+was preventing execution, re-verify everything downstream of it as if it were
+new** — because from a testing standpoint, it is.
+
+---
+
+### 3.4 Pipe precedence: `a ? b : c | pipe`
+
+**No commit exists for this one.** It was caught and fixed in the working tree
+before `a0ca2cb` was committed — `git show a0ca2cb:src/app/shared/components/vehicle-card/vehicle-card.component.html`
+already has the corrected line. The original expression below comes from the
+session record of the edit, not from git.
+
+#### 1. Symptom
+
+Nothing wrong was ever seen on screen. The defect was spotted in the source after
+Prettier reformatted the template, before any vehicle with `priceOnRequest: true`
+had been rendered. Had one been rendered, its card would have shown **no price
+line at all**: an empty gold slot where `السعر عند الاتصال` should be.
+
+#### 2. Mechanism
+
+The card's price binding was written as:
+
+```html
+{{ vehicle().priceOnRequest ? null : vehicle().price | egpPrice }}
+```
+
+The intent was "if the price is on request, give the pipe `null`; otherwise give
+it the price", so that [`EgpPricePipe`](src/app/shared/pipes/egp-price.pipe.ts)
+would turn `null` into its fallback:
+
+```ts
+transform(value: number | null | undefined, fallback = 'السعر عند الاتصال'): string {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+
+  return `EGP ${new Intl.NumberFormat('en-US').format(value)}`;
+}
+```
+
+But in Angular's template grammar **the pipe binds more tightly than the
+conditional**, so the expression actually parses as:
+
+```html
+{{ vehicle().priceOnRequest ? null : (vehicle().price | egpPrice) }}
+```
+
+The pipe applies to the false branch only. For a priced vehicle that is exactly
+right, which is why the line looks correct. For an on-request vehicle, the true
+branch gives a bare `null` that never goes through the pipe, and interpolating
+`null` renders an empty string. That line can never produce the fallback label
+the pipe exists to supply.
+
+This is the opposite of the intuition carried over from shell pipes, where `|`
+applies to everything on its left.
+
+#### 3. Why it was invisible
+
+- `ng build` passes. Both branches type-check, and `null` is a legal
+  interpolation value that produces no warning.
+- **It is correct in the common case.** Priced vehicles, which are nearly all of
+  the seed data, rendered `EGP 545,000` through the pipe as intended.
+- The failure is an *absence*: an empty text node. There is no error and no
+  `undefined` on screen to catch the eye.
+- The line reads as intended. The pipe is right there on it.
+
+**Prettier** exposed it. When the formatter rewrote the template, it printed the
+parsed structure back with explicit grouping, and that grouping was not what the
+author meant.
+
+#### 4. The fix
+
+The line `a0ca2cb` shipped with:
+
+```html
+{{ vehicle().price | egpPrice }}
+```
+
+The fix removes the conditional instead of adding parentheses. The conditional
+was redundant, because the model already stores `price: null` for an on-request
+vehicle:
+
+```ts
+// src/app/core/models/vehicle.model.ts
+price: number | null; // null when priceOnRequest
+priceOnRequest: boolean; // shows "السعر عند الاتصال"
+```
+
+The pipe already maps `null` to the fallback, so the shorter line is also the
+correct one.
+
+The fix depends on one rule in the data: **`priceOnRequest: true` must mean
+`price === null`.** The add/edit form enforces that, but nothing on the server
+does (§2.4). A document with `priceOnRequest: true` and a leftover number would
+show the number on the card. The other call sites check both fields
+([`seo.service.ts:74`](src/app/core/services/seo.service.ts#L74) and
+[`whatsapp.service.ts:51`](src/app/core/services/whatsapp.service.ts#L51)), so
+the card is the only place that relies on that rule alone. Part 5 lists it.
+
+#### 5. What would have happened in production
+
+Every vehicle the owner marked `السعر عند الاتصال` would have shown a blank where
+its price belongs, on the inventory grid and in the home page's featured band. To
+a visitor, a blank price looks like a broken listing. On-request vehicles are
+also usually the ones the owner most wants a customer to call about.
+
+The impact is small, but a quick look at the live site would not have caught it,
+because the seed data is almost entirely priced.
+
+#### 6. The general lesson
+
+**Class: operator precedence in a template language that does not match the host
+language.**
+
+Angular template expressions are not TypeScript. They are a small language with
+their own precedence table and one operator, the pipe, that does not exist in
+JavaScript. Intuitions from TypeScript do not carry over.
+
+The rule: **never combine a pipe with `?:` or `??` without parentheses.** Better
+still, as in this fix: if the pipe already handles the edge case, don't branch in
+the template at all.
+
+Also note how it was found. A **formatter** printed the real structure back, and
+the difference was visible. A formatter, an AST viewer and the compiled template
+all show the code's actual parse, and that makes each of them a form of
+verification.
+
+---
+
+### 3.5 `min-width: auto` overflowed the details page at 320px
+
+Commit `0868a46`.
+
+#### 1. Symptom
+
+At a 320px viewport — the narrowest supported width, per CLAUDE.md §4 — the
+vehicle details page scrolled horizontally. Content extended roughly **40px past
+the right edge**. The page was usable but visibly broken, with the whole layout
+shifted and a horizontal scrollbar on a page that should have none.
+
+#### 2. Mechanism
+
+This is the CSS behaviour that catches nearly everyone once.
+
+**A flex or grid item's `min-width` defaults to `auto`, not `0`.**
+
+For a normal block element, `min-width: auto` computes to `0`, so the element
+shrinks freely. For a **flex or grid item**, `auto` computes to that item's
+`min-content` size — the narrowest it can be without its contents overflowing
+*themselves*.
+
+The result: a flex/grid item **refuses to shrink below its content's intrinsic
+minimum**, no matter what the track or container says. It wins the argument with
+its parent.
+
+Here, the gallery column contained a horizontally-scrolling thumbnail rail. Its
+`min-content` width was the sum of all the thumbnails — `max-content`, in
+effect, because a row of fixed-size images does not wrap. That number was larger
+than the 320px viewport. The column inflated to fit it, the grid track inflated
+to fit the column, and the page overflowed.
+
+The `overflow-x: auto` on the rail did not help. Overflow governs what happens
+to content *inside* a box once the box has a size. It does not cause the box to
+accept a smaller size.
+
+#### 3. Why it was invisible
+
+- `ng build` passes — this is CSS, not TypeScript. No build tool inspects it.
+- It is **width-conditional**. At 375px, 768px, 1024px and 1440px the layout is
+  fine, because the container is wide enough to hold the rail's intrinsic
+  minimum. Only 320px triggers it. Any responsive check that skipped 320px would
+  have reported success.
+- The markup looks entirely reasonable. `flex flex-col gap-6` on a column and a
+  scrollable rail inside it is ordinary, correct-looking code. Nothing in it
+  says "this will refuse to shrink" — the behaviour comes from a CSS initial
+  value that is not written anywhere in the file.
+- Visually it is easy to miss in a desktop browser window narrowed by hand,
+  because the scrollbar can appear off-screen.
+
+It was caught by `npm run layout-check`, which drives real routes through
+`puppeteer-core` at 320 / 375 / 768 / 1024 / 1440 and reports
+`scrollWidth > clientWidth`.
+
+#### 4. The fix
+
+```diff
+--- a/src/app/features/public/vehicle-details/vehicle-details.component.html
++++ b/src/app/features/public/vehicle-details/vehicle-details.component.html
+       <!-- End column: identity, specs and the calls to action. -->
+-      <div class="flex flex-col gap-6">
++      <div class="flex min-w-0 flex-col gap-6">
+```
+
+```diff
+--- a/src/app/.../vehicle-gallery/vehicle-gallery.component.html
++++ b/src/app/.../vehicle-gallery/vehicle-gallery.component.html
+ <div
+-  class="flex flex-col gap-3"
++  class="flex min-w-0 flex-col gap-3"
+```
+
+```diff
+--- a/src/app/.../vehicle-gallery/vehicle-gallery.component.ts
++++ b/src/app/.../vehicle-gallery/vehicle-gallery.component.ts
+-  host: { class: 'block' },
++  host: { class: 'block min-w-0' },
+```
+
+`min-w-0` is `min-width: 0` — restoring the behaviour most people assumed was
+the default.
+
+The third hunk is the one worth noticing. `min-w-0` had to be applied to the
+**component host element** too, not only to the markup inside the template. A
+component's host is itself a grid item in the parent's layout, and it has the
+same `min-width: auto`. Fixing only the inner elements would have left the host
+inflating the track. This is a recurring Angular-specific trap: the host
+participates in the parent's layout and is invisible in both templates.
+
+The same commit also removed `RouterLink` and `EgpPricePipe` from the component's
+`imports` — both were unused from the template. Unrelated cleanup, ridden along.
+
+#### 5. What would have happened in production
+
+Horizontal scroll on the vehicle details page for anyone on a 320px-class device
+— older iPhone SE, small Android handsets, and any phone at large accessibility
+text sizes, which effectively narrows the layout viewport.
+
+In Egypt, where this site's traffic is overwhelmingly mobile and skews toward
+budget handsets, this is not an edge case. The details page is the page that
+carries the WhatsApp button — the last step of the entire sales funnel. A broken
+layout there costs conversions directly, and the affected users are precisely
+the ones least likely to report a bug and most likely to just leave.
+
+#### 6. The general lesson
+
+**Class: a CSS initial value that differs by formatting context.**
+
+The rule to memorise: **flex and grid items have `min-width: auto` (and
+`min-height: auto`), which means they will not shrink below their content's
+intrinsic minimum.** If a flex or grid child contains anything with a large
+intrinsic width — a long unbroken string, a `<pre>`, a table, a
+horizontally-scrolling rail, a wide image — it will blow out the layout, and no
+amount of `overflow` or `width` on the parent will stop it. `min-width: 0` on
+the item is the fix, essentially always.
+
+The three canonical symptoms: text that will not wrap, a scroll container that
+scrolls the page instead of itself, and exactly this — a child wider than its
+track.
+
+The second lesson is about **testing the boundary, not the middle**. 320px is
+listed in CLAUDE.md §4 for a reason. Bugs of this class live at extremes: the
+narrowest viewport, the longest string, the empty list, the single item. Testing
+375px and 1440px covers the comfortable middle and finds nothing, because the
+comfortable middle is where everything works.
+
+---
+
+### 3.6 `loading="lazy"` on the LCP candidate
+
+Commit `a3a171d`.
+
+#### 1. Symptom
+
+`/vehicles` had a Largest Contentful Paint of **8401 ms** on simulated mobile
+4G — catastrophic, and roughly 3.3× the 2500 ms "good" threshold.
+
+Breaking LCP into its four phases showed the problem was not the network or the
+server:
+
+| Phase | Before |
+|---|---|
+| TTFB | 458 ms |
+| **Load Delay** | **4226 ms** |
+| Load Time | 2537 ms |
+| Render Delay | 539 ms |
+
+**Load Delay** is the gap between the page starting to load and the LCP
+resource's request starting. Four and a quarter seconds of doing nothing about
+the most important image on the page.
+
+#### 2. Mechanism
+
+Every vehicle card image carried `loading="lazy"`, which is the correct default
+for a catalogue grid — most cards are below the fold and should not be fetched.
+
+But the **first card's image was the LCP element**, and `loading="lazy"` tells
+the browser the opposite of what it needs to hear about that image.
+
+A lazy image is not fetched during the preload scan. The browser must first:
+parse the HTML, build the DOM, load and apply the CSS, compute layout, determine
+where the element actually lands, and only then — once it knows the image is
+near the viewport — issue the request. On a throttled mobile connection with the
+CSS and JS still arriving, every one of those steps is delayed by everything
+else in flight.
+
+Meanwhile the **preload scanner**, which is the browser's fastest path to
+discovering resources, skips lazy images entirely by design. The single most
+important byte on the page was placed in the slowest possible discovery queue.
+
+This is a case where a good default is wrong for exactly one element.
+
+#### 3. Why it was invisible
+
+- `ng build` passes. `loading="lazy"` is a valid attribute and correct practice.
+- It is not a bug in any conventional sense — no error, no wrong output. The
+  page is correct; it is slow.
+- **A code review would endorse it.** "Lazy-load images below the fold" is
+  standard advice, and a vehicle card is a generic component with no idea
+  whether it is first on the page or fortieth. The component was right; its
+  *usage in one position* was wrong.
+- Whether it is a defect depends on runtime layout — where the element lands in
+  the viewport at a given breakpoint — which no static analysis can determine.
+
+It was found by running Lighthouse with mobile 4G throttling and reading the LCP
+phase breakdown rather than the single score. The score says "slow". The phase
+breakdown says **why**, and Load Delay of 4226 ms points at exactly one thing.
+
+#### 4. The fix
+
+The interesting part is that it is **not** simply "set `eager` on the first
+row". The commit separates two hints that are usually conflated:
+
+```diff
+--- a/src/app/shared/components/cloud-image/cloud-image.component.ts
++++ b/src/app/shared/components/cloud-image/cloud-image.component.ts
+-  /** The hero only: eager, high priority, decoded synchronously. */
++  /**
++   * The LCP candidate: eager, `fetchpriority="high"`, decoded synchronously.
++   * At most one image per page should carry this — several high-priority
++   * images only compete with each other.
++   */
+   readonly priority = input(false);
+ 
++  /**
++   * Above the fold but not the LCP candidate: eager, so the browser does not
++   * deprioritise it the way it does a lazy image, but at normal priority.
++   */
++  readonly eager = input(false);
++
++  protected readonly loading = computed(() => (this.priority() || this.eager() ? 'eager' : 'lazy'));
+```
+
+```diff
+--- a/src/app/shared/components/cloud-image/cloud-image.component.html
++++ b/src/app/shared/components/cloud-image/cloud-image.component.html
+-  [attr.loading]="priority() ? 'eager' : 'lazy'"
++  [attr.loading]="loading()"
+   [attr.fetchpriority]="priority() ? 'high' : null"
+   [attr.decoding]="priority() ? 'sync' : 'async'"
+```
+
+And the grid assigns them positionally:
+
+```diff
+--- a/src/app/shared/components/vehicle-grid/vehicle-grid.component.html
++++ b/src/app/shared/components/vehicle-grid/vehicle-grid.component.html
+-    @for (vehicle of list; track vehicle.id) {
+-      <app-vehicle-card [vehicle]="vehicle" />
++    @for (vehicle of list; track vehicle.id; let i = $index) {
++      <app-vehicle-card
++        [vehicle]="vehicle"
++        [priority]="eagerCount() > 0 && i === 0"
++        [eager]="i > 0 && i < eagerCount()"
++      />
+     }
+```
+
+The reasoning behind the split is recorded on `eagerCount`:
+
+> The real first row is breakpoint-dependent (1 card at 375px, 5 at 1536px) and
+> markup cannot know which applies, so this is a deliberate compromise: enough
+> cards to cover a desktop row, with only one high-priority hint so a phone does
+> not fetch four full-width images that compete with each other.
+
+The instruction for this session was "the first row of vehicle cards must be
+`loading="eager"` with `fetchpriority="high"`". That was **deliberately not
+followed literally**, and the commit message says so:
+
+> Deliberate deviation from 'the whole first row gets fetchpriority=high': the
+> real first row is 1 card at 375px and 5 at 1536px, and several high-priority
+> images only compete. One hint, several eager.
+
+`fetchpriority="high"` is a *relative* signal. Applying it to five images tells
+the browser they are all more important than everything else and nothing about
+which to fetch first — on a phone, where the "first row" is one card, it would
+have meant four full-width images competing with the one that actually matters.
+
+Also note `eagerCount` defaults to `0`, and the home page leaves it there: its
+featured band sits below a full-viewport hero, so those cards correctly stay
+lazy. The hero is that page's LCP candidate.
+
+**Result, and what it revealed.**
+
+| Phase | Before | After |
+|---|---|---|
+| TTFB | 458 ms | 456 ms |
+| **Load Delay** | **4226 ms** | **335 ms** |
+| Load Time | 2537 ms | 176 ms |
+| Render Delay | 539 ms | 3827 ms |
+| **LCP** | **8401 ms** | **5631 ms** |
+
+2770 ms removed, median of five runs.
+
+The load delay collapsed by 3891 ms and load time by 2361 ms — but **render
+delay rose from 539 ms to 3827 ms**. The image now arrives early and waits for
+the main thread to be free enough to paint it. The bottleneck moved from network
+discovery to main-thread contention; it was not removed. The commit message
+states this plainly: *"The image is no longer the bottleneck."* Part 4 takes up
+what that means and what it did not prove.
+
+#### 5. What would have happened in production
+
+An 8.4-second LCP on the inventory page, on mobile 4G — the exact profile of
+this site's actual audience. Well past the point where a large share of visitors
+abandon before seeing anything. It also directly degrades Google ranking, since
+LCP is a Core Web Vital, on a site whose entire discovery strategy is organic
+search.
+
+#### 6. The general lesson
+
+**Class: a correct default applied to the one element that is the exception.**
+
+`loading="lazy"` is right for roughly forty images on that page and catastrophic
+for one. The rule is simple and absolute: **the LCP element must never be lazy,
+and there must be exactly one `fetchpriority="high"` per page.**
+
+The harder, transferable part is the *diagnostic* method. A Lighthouse score is
+a number to feel bad about. **The LCP phase breakdown tells you which of four
+different problems you have**, and each has a different fix:
+
+| Dominant phase | Meaning | Fix |
+|---|---|---|
+| TTFB | The server is slow to respond | Caching, a faster region, less server work |
+| **Load Delay** | The resource was discovered late | `preload`, remove `lazy`, stop hiding it behind CSS/JS |
+| Load Time | The resource is too big | Compression, format negotiation, correct `srcset` |
+| Render Delay | It arrived but could not be painted | Reduce main-thread work, split bundles, shrink hydration |
+
+Before optimising anything, find out which phase dominates. Optimising the wrong
+one is effort that changes no number at all — and after this fix, the dominant
+phase became Render Delay, which means the next optimisation would have to be a
+completely different kind of work.
+
+---
+
+### 3.7 `as Record` hid a missing key that would have produced `NaN`
+
+Commit `248c5f1`.
+
+#### 1. Symptom
+
+None — it was caught before shipping. Had it shipped: the dashboard's category
+split bar would have shown `NaN%` for every segment, or collapsed to nothing,
+the moment a single minibus vehicle existed.
+
+#### 2. Mechanism
+
+`countByCategory` reduces vehicles into a per-category tally. The seed value was
+written as:
+
+```ts
+{ pickup: 0, passenger: 0 } as Record<VehicleCategory, number>
+```
+
+When `VehicleCategory` was `'pickup' | 'passenger'`, that object was complete and
+the cast was merely unnecessary. Commit `248c5f1` added a third member:
+
+```ts
+export type VehicleCategory = 'pickup' | 'minibus' | 'passenger';
+```
+
+The object was now missing `minibus`. **The `as` cast suppressed the error.**
+
+`as` is an assertion, not a conversion. It tells the compiler "trust me, treat
+this as that" and disables the check that would have caught the gap. So
+`counts['minibus']` was `undefined` at runtime, and:
+
+```ts
+counts[vehicle.category] += 1;      // undefined += 1  →  NaN
+```
+
+`undefined + 1` is `NaN`, and `NaN` propagates through every arithmetic
+operation it touches. The split bar computes each segment as a percentage of the
+total; one `NaN` in the sum makes the total `NaN`, and every percentage `NaN`.
+
+The failure is **silent, delayed and data-dependent**. The code is fine until a
+minibus document exists.
+
+#### 3. Why it was invisible
+
+- `ng build` passes — that is precisely what the cast accomplished. TypeScript
+  had the information needed to reject it and was explicitly told not to.
+- `strict: true` does not help. Strict mode governs nullability and implicit
+  `any`. It does not override an explicit assertion; an assertion is the
+  programmer overriding the compiler, and strict mode respects that.
+- Nothing fails at the moment of change. The type widens, the object does not,
+  and the two silently diverge.
+- With only pickup and passenger vehicles in the database, behaviour is
+  completely correct. The defect activates on data, not on deploy.
+
+It was noticed while adding the category, by asking what else referenced
+`VehicleCategory` — not by any tool.
+
+#### 4. The fix
+
+```diff
+-      { pickup: 0, passenger: 0 } as Record<VehicleCategory, number>,
++      // Written out rather than cast, so adding a category is a compile
++      // error here instead of a silent NaN in the dashboard.
++      { pickup: 0, minibus: 0, passenger: 0 } satisfies Record<VehicleCategory, number>,
+```
+
+The difference between `as` and `satisfies` is the whole lesson:
+
+- **`as T`** — "treat this as `T`." Checking is suppressed. The programmer wins
+  the argument.
+- **`satisfies T`** — "check that this conforms to `T`, and keep its own narrower
+  type." Checking is enforced. The compiler wins.
+
+With `satisfies`, adding a fourth category becomes a **compile error at this
+exact line**, pointing directly at the code that needs updating.
+
+The neighbouring `countByStatus` already used `satisfies` correctly:
+
+```ts
+{ available: 0, reserved: 0, sold: 0, hidden: 0 } satisfies Record<VehicleStatus, number>,
+```
+
+Same shape, same file, one function apart — one safe, one not. That is what
+makes this worth documenting: **the correct instinct was present and was not
+applied uniformly.** An inconsistency like that is invisible until the day it
+matters.
+
+#### 5. What would have happened in production
+
+The owner adds their first ميكروباص. The dashboard's category bar — one of five
+things on the page — breaks, showing `NaN%` or vanishing. Nothing else is
+affected; vehicles still save, the public site is fine.
+
+Non-critical, but corrosive in a specific way: it breaks **the first time the
+owner uses a brand-new feature they were just told about**, on a screen they
+were shown at handover. For a non-technical user, a page that displays `NaN`
+does not read as "one widget has a bug"; it reads as "the system is broken and I
+should not trust it."
+
+#### 6. The general lesson
+
+**Class: a type assertion suppressing the exact check that would have caught a
+later change.**
+
+Every `as` is a place where the compiler was told to stop checking. That is
+sometimes necessary — parsing external JSON, narrowing a DOM node, working
+around an incomplete third-party type. It is almost never necessary for an
+object literal you wrote three characters ago.
+
+The rules:
+
+1. **Never use `as` on an object literal.** If it is meant to be `T`, annotate
+   it `const x: T = {...}` or assert `{...} satisfies T`. Both check. `as` does
+   not.
+2. **`as` on a union-keyed `Record` is a trap with a timer on it.** It is
+   correct on the day it is written and becomes wrong when someone extends the
+   union — and it will not tell them.
+3. **When you widen a union type, grep for every use.** `Record<T, …>`,
+   `switch` statements without `default`, and exhaustiveness helpers are where
+   the fallout lands.
+
+Recognising it: **search the codebase for `as ` and ask of each one, "what check
+is this turning off, and what future change would that check have caught?"** In
+this repository the audit found one. It was enough.
+
+---
+
+### 3.8 The stale server — chasing a bug that did not exist
+
+**No commit exists for this.** It was not a defect in the code; it was a defect
+in the verification method. It appears here because the time it consumed was
+real and the lesson is the most practically valuable in Part 3.
+
+#### 1. Symptom
+
+During the session-3 responsive check, the screenshots showed the page
+**overflowing horizontally at 375px, with the RTL start edge clipped**. The
+session record says: *"Found a real bug at 375px — the page overflows
+horizontally and the RTL start edge is clipped."* The element at that edge was
+moved to fix it, and the screenshot was taken again. Nothing had changed.
+
+#### 2. Mechanism
+
+Two separate failures, each making the other worse.
+
+**The server was never replaced.** The rebuild sequence stopped the old server
+with `taskkill //F //PID …` and then started a new one. The old process kept
+port 4400. The note written on noticing it says: *"The server never restarted —
+the old process kept port 4400, so I've been screenshotting a stale build."*
+Every screenshot after the first showed a build without the edits under test.
+The record doesn't show why the kill failed. What matters is that nobody checked
+whether it had worked.
+
+**The screenshot method was also unreliable for RTL.** The screenshots came from
+headless Chrome's command-line flags (`--screenshot`, `--window-size`). Those did
+not reliably capture an RTL page at the scroll position a real visitor sees, so
+part of the apparent clipping came from the capture itself. The note at the time:
+*"The CLI approach is too unreliable to trust."*
+
+Two unreliable instruments produced a picture that was consistent, believable
+and wrong.
+
+#### 3. Why it was invisible
+
+- There is no error. A stale server returns 200 and valid HTML. The build is
+  simply old.
+- **Consistency looked like confirmation.** Identical screenshots after each edit
+  seemed to prove the bug was real and the edits were wrong. In fact they proved
+  *nothing was changing*, and from the outside the two look the same.
+- Nobody checked the assumption that the screen reflected the code just written.
+  Everything that followed was reasoning about a bug that wasn't there.
+- A badly captured RTL page looks like a real RTL layout bug, which is the most
+  likely kind of bug in this codebase, so it was believed.
+
+#### 4. The fix
+
+The fix was a tool rather than a code change. `puppeteer-core` was added as a
+devDependency and
+[`scripts/dev/layout-check.mjs`](scripts/dev/layout-check.mjs) was written
+(`42090ed`), run with `npm run layout-check`. It drives a real browser against
+real routes at the widths in CLAUDE.md §4 and reports overflow as a number,
+instead of relying on someone reading a picture.
+
+Being automated is only part of its value. It **removes the steps that failed**:
+no hand-typed screenshot flags, no guessing at scroll position, and a measured
+`scrollWidth` in place of an impression. It is the tool that later found §3.5.
+
+On its own it doesn't fix the process problem: pointed at a stale server, the
+script would measure the stale server. The habit that fixes that is below.
+
+#### 5. What would have happened in production
+
+Nothing directly, because no broken code shipped. The cost was time, plus a less
+obvious risk: **an edit was made to fix a bug that did not exist.** The
+repository can't tell us which session-3 edits were reactions to the false bug,
+and that is itself the problem. Changes to working code made on false evidence
+are how real regressions get introduced.
+
+#### 6. The general lesson
+
+**Class: trusting an instrument without checking the instrument.**
+
+**First: when a change seems to have no effect, suspect the build and serve
+steps before the change itself.** Make a deliberately obvious edit, such as a
+magenta background or a printed timestamp. If it doesn't appear, you are not
+looking at your code. That check takes fifteen seconds and would have ended this
+incident at once.
+
+**Second: process management fails silently, so check it.** `taskkill`, `kill`
+and `docker stop` all fail quietly for ordinary reasons. After stopping a server,
+**confirm the port is free** (`netstat -ano | grep :4400`) before starting the
+next one. Assuming a kill worked is the same mistake as assuming a write worked.
+
+**Third: repeating an observation from one unchecked source doesn't confirm it.**
+Five identical screenshots from a stale server are one observation taken five
+times.
+
+The broader point explains why this ended in a script and not a promise to be
+more careful: **when a verification method has failed you, replace it.**
+
+---
+
+### 3.9 The hero "fix" that regressed the design
+
+Commits `139a937` → `171db28` → `48912f6` → `1e3da03`. Four commits and three
+sessions for one section of one page.
+
+#### 1. Symptom
+
+Three distinct symptoms in sequence, which is what makes this worth documenting.
+
+**(a)** The mobile hero was wrong at 390×844: the truck was cropped through its
+middle behind the headline, contrast was too low, the section was too tall for
+its content, and the trust indicators stacked vertically and consumed a third of
+the screen.
+
+**(b)** After `139a937` fixed all four, a photograph of a **real iPhone running
+Safari** showed the hero badly broken in a new way — the crop cutting the truck
+in half with dead ink bands above and below it. The user's message was: *"what's
+this !! look at mobile screens !"*
+
+**(c)** After `171db28` fixed that, the user rejected the fix outright:
+
+> This is a regression in shape, not a fix. You turned the hero into an ordinary
+> image block sitting below the text in normal flow. That is not a hero — the
+> text now sits on flat ink with the photo as a separate band underneath it.
+> Look at design/storyboard.png panel 05: the mobile hero is the same
+> composition as desktop — the photo is the BACKGROUND and the headline,
+> description and buttons sit ON TOP of it.
+
+#### 2. Mechanism
+
+**Symptom (b) — the `svh` unit.** `139a937` sized the picture band with `74svh`
+and let `object-fit: cover` crop a padded image into it.
+
+`svh` is the *small viewport height*: the viewport with all dynamic browser UI
+**shown**. It was introduced precisely to avoid the old `100vh` problem on
+mobile. But it is still a **viewport-relative unit**, and on iOS Safari the
+layout viewport changes as the URL bar collapses and expands during scrolling.
+The band's height became a moving target. On a real phone it ended up shorter
+than the photo's natural height, and `object-fit: cover` did what it is supposed
+to do: crop the overflow — straight through the middle of the truck.
+
+Verification at 390×844 in headless Chrome could not reveal this. 844 is the
+*full* viewport height. With Safari's URL bar showing, the real usable height is
+about **664**. The tooling reported accurately on a viewport that does not exist
+on the device it was standing in for.
+
+**Symptom (c) — solving the wrong problem.** `171db28` correctly diagnosed "the
+height depends on the viewport" and then took the wrong remedy: it moved the
+photo **out of the background** into normal flow as an ordinary block with a
+fixed aspect ratio, with the text below it.
+
+That does make the height viewport-independent. It also stops being a hero. A
+hero is a specific composition — text over image — and the fix replaced it with
+a picture and a caption. The bug was fixed and the design was destroyed.
+
+The real insight came in `48912f6`, and it is the one worth extracting:
+
+> The picture is absolute inset-0 again with both scrims restored, and the
+> section height comes from min-h-[22rem] plus its content — rem, never
+> svh/vh/dvh, so Safari's URL bar cannot resize it. **That was always the real
+> cause and it never required moving the image.**
+
+The offending property was the *unit*, not the *layout*. Replacing `74svh` with
+`min-h-[22rem]` — an absolute unit that no browser chrome can influence — fixes
+the bug while keeping the composition intact. The earlier fix had changed a
+variable that was correlated with the bug rather than the one causing it.
+
+#### 3. Why it was invisible
+
+- `ng build` passes. `npm run layout-check` passes. Both were measuring a
+  viewport that does not occur on a real iPhone.
+- **A green check against the wrong target is worse than no check**, because it
+  ends the investigation. 390×844 is the specified viewport for an iPhone 14 and
+  is what every device-emulation dropdown offers. It is also not what the page
+  gets when Safari's URL bar is visible.
+- Symptom (c) is not detectable by any automated means at all. "The photo is no
+  longer the background" is a **design** regression. No overflow check, no
+  screenshot diff, no Lighthouse audit encodes "this must remain a hero." Only a
+  person holding the storyboard can see it.
+- Desktop was verified non-regressed throughout — 0.786%, then 0.817% of pixels
+  differing, confined to the trust-icon row. That check was sound and it worked.
+  It simply had nothing to say about mobile composition.
+
+#### 4. The fix
+
+The relevant change, from `48912f6`:
+
+- Picture returns to `absolute inset-0` with both scrims restored.
+- Section height comes from `min-h-[22rem]` **plus content** — rem, never
+  `svh`/`vh`/`dvh`.
+- The final composition (`1e3da03`) uses two chained Cloudinary transforms:
+  `c_fill,ar_3:2,g_west` crops toward the vehicle, then `c_pad,ar_4:5,g_north`
+  pads beneath it in ink, so the truck sits whole across the top with the text
+  centred on the dark ground below — the storyboard's composition.
+
+The `22rem` figure is derived, not guessed, and the commit records the
+derivation:
+
+> 22rem is not arbitrary: the truck spans 0..0.583 of the source width, so a
+> west-gravity fill crop only keeps it whole while the section stays wider than
+> 1.036:1. At 390px that caps the hero near 376px; 22rem lands at 352px (aspect
+> 1.108) with margin, and the description is line-clamped on mobile so an
+> over-long one cannot push past it.
+
+Verified at **both** 390×664 and 390×844, producing an identical hero at each —
+which is the actual proof that the height no longer depends on the viewport.
+
+#### 5. What would have happened in production
+
+Version (b) — the `svh` version — would have shipped a broken hero to **every
+iOS Safari visitor**, which on an Egyptian consumer site is a large share of
+traffic. The first thing a visitor sees, cropped through the middle of the
+subject, on the page that has one job: make the showroom look credible.
+
+It would also have been **invisible to the developer**, because it renders
+correctly in every desktop browser and in every device emulator. Only a real
+phone shows it.
+
+#### 6. The general lesson
+
+Three lessons, in ascending order of value.
+
+**First — never size a layout-critical element in viewport-relative units on
+mobile.** `vh`, `svh`, `lvh` and `dvh` all vary with browser chrome on iOS
+Safari, and `dvh` changes *during scroll*. If an element must have a stable
+height, derive it from content, from a fixed aspect ratio, or from absolute
+units. `rem` cannot be resized by a URL bar.
+
+**Second — device emulation is not a device.** The nominal viewport of a phone
+is not the viewport your page receives. Safari's URL bar, Android's gesture bar,
+notches and safe-area insets all take space that emulators hand back to you. For
+anything mobile-critical, **test on real hardware at least once**. Two of these
+four commits exist because that had not happened, and the thing that finally
+broke the loop was a photograph of a phone.
+
+**Third, and most important — when fixing a bug, change the thing that causes
+it.** `171db28` correctly identified "the height depends on the viewport" and
+then removed the image from the background, which was neither necessary nor
+sufficient — it was simply *near* the bug. The result fixed the symptom and
+destroyed the feature.
+
+The discipline: **before applying a fix, state what it changes and why that is
+the minimum change that resolves the cause.** If the answer includes altering
+something the user can see that they did not ask to have altered, it is the
+wrong fix — even when it makes the symptom go away. The user's rejection here
+was correct and immediate, and the eventual one-property fix proves it: the
+composition never needed to change at all.
+
+---
+
+### 3.10 The footer shipped placeholder contact details to live visitors
+
+Commit `da6cf43`.
+
+#### 1. Symptom
+
+The public footer, on every page of the live site, displayed:
+
+```
++20 100 000 0000
+العنوان هيتحدد من لوحة التحكم        ("the address will be set from the dashboard")
+مواعيد العمل هتتحدد من لوحة التحكم    ("the working hours will be set from the dashboard")
+```
+
+A fake phone number and two internal notes-to-self, in Arabic, addressed to the
+developer, shown to every visitor of a real business's website.
+
+#### 2. Mechanism
+
+Not a framework bug. A piece of scaffolding that was never replaced.
+
+The footer was built in `36c592c` ("feat: public layout with navbar, drawer, tab
+bar and footer") — session 1, before Firebase existed in the project. CLAUDE.md
+§6 explicitly sanctions this:
+
+> Do not stop to ask about Firebase credentials, the Cloudinary preset, or the
+> WhatsApp number — create clearly-marked placeholders and keep going.
+
+That instruction is correct and it is why the project moved quickly. The failure
+is that **nothing tracked the placeholder afterwards.** The pre-fix template
+hardcoded all three values:
+
+```html
+<li class="flex items-center gap-2">
+  <app-icon name="phone" [size]="16" class="text-gold" />
+  <span dir="ltr" class="font-latin">+20 100 000 0000</span>
+</li>
+<li class="flex items-center gap-2">
+  <app-icon name="map-pin" [size]="16" class="text-gold" />
+  <span>العنوان هيتحدد من لوحة التحكم</span>
+</li>
+```
+
+`ShowroomSettings` grew `phoneNumber`, `address` and `workingHours`. The admin
+settings page was built with fields for all three (`9d3f2f3`). The owner could
+enter their real details, save them successfully, and see **no change on the
+site**, because the footer never read them. It survived every subsequent session
+because nobody was looking at the footer — each session had a different scope,
+and the footer was in none of them.
+
+It was found incidentally, in session 10, while adding social links to the same
+component.
+
+#### 3. Why it was invisible
+
+- `ng build` passes. Hardcoded strings in a template are valid markup.
+- **It rendered perfectly.** There is no failure state. A footer showing a
+  plausible-looking phone number and two lines of Arabic text is exactly what a
+  footer looks like.
+- The text is in Arabic and the placeholder nature is only apparent if you read
+  it. `العنوان هيتحدد من لوحة التحكم` is not visually distinct from a real
+  address — it is the same length, the same font, in the same position.
+- No test, linter, type check or Lighthouse audit has any concept of "this
+  string was meant to be replaced."
+- The footer is on every page, which paradoxically made it *less* visible: it
+  became chrome, the part of the screenshot the eye stops registering.
+
+#### 4. The fix
+
+The component now loads settings and the template renders each line
+conditionally:
+
+```html
+@if (settings()?.phoneNumber; as phone) {
+  <li class="flex items-center gap-2">
+    <app-icon name="phone" [size]="16" class="text-gold" />
+    <a dir="ltr" class="font-latin transition hover:text-gold" [href]="'tel:' + phone">
+      {{ phone }}
+    </a>
+  </li>
+}
+
+@if (settings()?.address; as address) { … }
+@if (settings()?.workingHours; as hours) { … }
+```
+
+Three things changed beyond removing the strings:
+
+1. **Absent data renders nothing.** `@if (settings()?.phoneNumber; as phone)`
+   means an empty field produces no row — not an empty row, not a placeholder.
+   An incomplete footer is strictly better than a false one.
+2. **The phone became a `tel:` link.** It was inert text before.
+3. **The copyright line reads `settings()?.showroomName ?? 'معرض الأندلس'`** —
+   the fallback is the real business name, not a placeholder.
+
+The same commit added the social links, and the commit message does not bury the
+incidental discovery:
+
+> This also wires the footer to settings/showroom at last: the phone, address
+> and hours had been hardcoded placeholders since the layout was built, and were
+> reading 'العنوان هيتحدد من لوحة التحكم' to real visitors.
+
+#### 5. What would have happened in production
+
+It **did** reach production. This is the only defect in Part 3 that was live on
+the deployed site rather than caught before deploy.
+
+The consequences are commercial rather than technical:
+
+- A visitor wanting to phone the showroom gets a fake number. There is no
+  fallback path — the footer is where people look for a phone number.
+- The site tells its own customers, in Arabic, that its address has not been
+  configured. To a visitor, that reads as an abandoned or unfinished business.
+- Worst: the owner can enter their real address in the dashboard, save it,
+  receive `تم حفظ الإعدادات`, and still see the placeholder on the site. They
+  would have no way to diagnose that, and would reasonably conclude the admin
+  panel does not work.
+
+#### 6. The general lesson
+
+**Class: temporary scaffolding with no mechanism for its own removal.**
+
+Placeholders are a legitimate and valuable technique — CLAUDE.md prescribes them
+and the project shipped faster because of them. The defect is not the
+placeholder. **It is a placeholder with no forcing function.**
+
+A placeholder needs one of these, or it becomes permanent:
+
+1. **A marker that tooling can find.** `// TODO(settings): wire to
+   settings/showroom` is greppable. `CI` can fail on `TODO` in `main`. A plain
+   Arabic string is findable by nobody.
+2. **A visible failure.** Rendering `⚠ PLACEHOLDER` or leaving the element out
+   entirely makes the gap obvious. A placeholder that looks like real content is
+   the dangerous kind, and this one looked exactly like real content.
+3. **An entry in a list that is actually read.** CLAUDE.md gained a "Known debt"
+   section in `0be8046` — but that was session 5, and the footer placeholder
+   from session 1 was never added to it.
+
+The sharpest version of the rule: **a placeholder that renders as plausible
+content is a bug from the moment it is written.** Its indistinguishability is
+the whole problem.
+
+There is a second lesson about scope. Every session after the first had a
+defined scope, and that discipline is defended in Part 1 as the reason the
+project worked. This is its cost: **nothing outside the current scope gets
+looked at, for as long as the scoping lasts.** The footer was in no session's
+scope for nine sessions.
+
+The mitigation is not to abandon scoping. It is to add one thing the phased
+approach lacked: a **pass with no scope** — a walk through every page of the
+running site, reading what is actually on the screen, before handover. That pass
+would have found this in under a minute. It was never scheduled, and this defect
+is what that omission cost.
+
+---
