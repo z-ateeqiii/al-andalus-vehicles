@@ -1,0 +1,48 @@
+/*
+ * Column width comes from how many columns the breakpoint allows, never from
+ * how many cards there are — so a card is the same size in a section of one as
+ * in a section of twenty.
+ *
+ * `auto-fit` with that fixed width collapses the tracks nobody uses, and
+ * `justify-content: center` then centres what is left. A full row fills the
+ * width exactly and looks as it always did; only a section shorter than one
+ * row changes, and it no longer leaves the empty tracks on one side.
+ *
+ * The 0.02px keeps rounding from ever fitting one track fewer than --cols.
+ */
+.vehicle-grid {
+  --cols: 1;
+  --gap: 1rem;
+
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(
+    auto-fit,
+    calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols) - 0.02px)
+  );
+  justify-content: center;
+}
+
+@media (width >= 48rem) {
+  .vehicle-grid {
+    --cols: 2;
+  }
+}
+
+@media (width >= 64rem) {
+  .vehicle-grid {
+    --cols: 3;
+  }
+}
+
+@media (width >= 80rem) {
+  .vehicle-grid {
+    --cols: 4;
+  }
+}
+
+@media (width >= 96rem) {
+  .vehicle-grid {
+    --cols: 5;
+  }
+}

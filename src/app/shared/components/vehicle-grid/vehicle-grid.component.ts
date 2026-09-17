@@ -5,7 +5,8 @@ import { VehicleCardComponent } from '../vehicle-card/vehicle-card.component';
 
 /**
  * The standard catalogue grid — 1 column on mobile, 2 at tablet, 3 at 1024,
- * 4 at 1280, 5 on a wide desktop (build spec §6.3).
+ * 4 at 1280, 5 on a wide desktop (build spec §6.3). A section with fewer cards
+ * than that keeps the same card size and is centred (see the stylesheet).
  *
  * Passing `null` renders skeleton cards in the same grid, so the loading
  * state is the real layout rather than an approximation of it.
